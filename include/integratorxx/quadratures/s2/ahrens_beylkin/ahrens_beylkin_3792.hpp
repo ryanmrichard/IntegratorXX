@@ -10,7 +10,7 @@ namespace AhrensBeylkinGrids {
 template <typename T>
 struct ahrens_beylkin_3792 {
 
-  static constexpr std::array<cartesian_pt_t<T>,3792> points = {
+  static constexpr std::array<cartesian_pt_t<double>,3792> points = {
       0.000000000000000E+00,         -0.5257311121191336,          0.8506508083520399,
       0.000000000000000E+00,         -0.5257311121191336,         -0.8506508083520399,
          0.8506508083520399,       0.000000000000000E+00,         -0.5257311121191336,
@@ -3806,7 +3806,7 @@ struct ahrens_beylkin_3792 {
 };
 
 
-static constexpr std::array<T,3792> weights = {      2.134474800949888E-03,
+static constexpr std::array<double,3792> weights = {      2.134474800949888E-03,
       2.134474800949888E-03,
       2.134474800949888E-03,
       2.134474800949888E-03,

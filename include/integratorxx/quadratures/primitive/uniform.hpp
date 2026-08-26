@@ -1,6 +1,7 @@
 #pragma once
 
 #include <integratorxx/quadrature.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 #include <vector>
 
 namespace IntegratorXX {
@@ -48,23 +49,29 @@ struct quadrature_traits<
   inline static std::tuple<point_container,weight_container>
     generate( size_t npts, point_type lo, point_type up ) {
 
+    using ptraits = fp_traits<point_type>;
+    using wtraits = fp_traits<weight_type>;
+
     const auto npts_use = npts - 1;
-    const auto delta_x  = (up - lo) / npts_use;
+    const auto delta_x  = (up - lo) / ptraits::from_exact(double(npts_use));
     point_container  points( npts );
     weight_container weights( npts, delta_x );
 
     for( size_t i = 0; i <= npts_use; ++i )
-      points[i] = lo + i * delta_x;
+      points[i] = lo + ptraits::from_exact(double(i)) * delta_x;
     
-    weights.front() *= 0.5;
-    weights.back()  *= 0.5;
+    weights.front() *= wtraits::from_exact(0.5);
+    weights.back()  *= wtraits::from_exact(0.5);
 
     return std::make_tuple( points, weights );
 
   }
 
   inline static std::tuple<point_container,weight_container>
-    generate( size_t npts ) { return generate(npts, 0.0, 1.0); }
+    generate( size_t npts ) {
+      using ptraits = fp_traits<point_type>;
+      return generate(npts, ptraits::from_exact(0.0), ptraits::from_exact(1.0));
+    }
 };
 
 }

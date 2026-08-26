@@ -10,7 +10,7 @@ namespace LebedevLaikovGrids {
 template <typename T>
 struct lebedev_laikov_5810 {
 
-  static constexpr std::array<cartesian_pt_t<T>,5810> points = {
+  static constexpr std::array<cartesian_pt_t<double>,5810> points = {
       1.000000000000000e+00,      0.000000000000000e+00,      0.000000000000000e+00,
      -1.000000000000000e+00,      0.000000000000000e+00,      0.000000000000000e+00,
       0.000000000000000e+00,      1.000000000000000e+00,      0.000000000000000e+00,
@@ -5824,7 +5824,7 @@ struct lebedev_laikov_5810 {
   };
 
 
-  static constexpr std::array<T,5810> weights = {
+  static constexpr std::array<double,5810> weights = {
         9.735347946175486e-06,
         9.735347946175486e-06,
         9.735347946175486e-06,

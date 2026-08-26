@@ -9,7 +9,7 @@ namespace DelleyGrids {
  */
 template <typename T>
 struct delley_434 {
-  static constexpr std::array<cartesian_pt_t<T>, 434> points = {
+  static constexpr std::array<cartesian_pt_t<double>, 434> points = {
       0.10000000000000000E+01,  0.00000000000000000E+00,
       0.00000000000000000E+00,  -0.10000000000000000E+01,
       0.00000000000000000E+00,  0.00000000000000000E+00,
@@ -662,7 +662,7 @@ struct delley_434 {
       -0.10680182607580482E+00, -0.79992785438572855E+00,
       -0.59051570489252714E+00, -0.10680182607580482E+00};
 
-  static constexpr std::array<T, 434> weights = {
+  static constexpr std::array<double, 434> weights = {
       0.52658979682244358E-03, 0.52658979682244358E-03, 0.52658979682244358E-03,
       0.52658979682244358E-03, 0.52658979682244358E-03, 0.52658979682244358E-03,
       0.25123174189273074E-02, 0.25123174189273074E-02, 0.25123174189273074E-02,

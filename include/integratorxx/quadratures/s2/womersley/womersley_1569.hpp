@@ -10,7 +10,7 @@ namespace WomersleyGrids {
 template <typename T>
 struct womersley_1569 {
 
-  static constexpr std::array<cartesian_pt_t<T>,1569> points = {
+  static constexpr std::array<cartesian_pt_t<double>,1569> points = {
      0.0000000000000000e+00,      0.0000000000000000e+00,      1.0000000000000000e+00,
      7.4052141364286658e-02,      0.0000000000000000e+00,      9.9725437094021485e-01,
      8.7090198688118098e-02,      9.2383910271309266e-02,      9.9190751101876773e-01,
