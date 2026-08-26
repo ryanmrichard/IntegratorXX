@@ -2,6 +2,7 @@
 
 #include <integratorxx/quadratures/primitive/gausschebyshev2.hpp>
 #include <integratorxx/quadratures/radial/radial_transform.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 
 namespace IntegratorXX {
 
@@ -51,7 +52,8 @@ class BeckeRadialTraits : public RadialTraits {
    */
   template <typename PointType>
   inline auto radial_transform(PointType x) const noexcept {
-    return R_ * (1.0 + x) / (1.0 - x);
+    using traits = fp_traits<PointType>;
+    return R_ * (traits::from_exact(1.0) + x) / (traits::from_exact(1.0) - x);
   };
 
   /**
@@ -62,7 +64,8 @@ class BeckeRadialTraits : public RadialTraits {
    */
   template <typename PointType>
   inline auto radial_jacobian(PointType x) const noexcept {
-    return R_ * 2.0 / std::pow(1.0 - x, 2);
+    using traits = fp_traits<PointType>;
+    return R_ * traits::from_exact(2.0) / traits::pow(traits::from_exact(1.0) - x, 2);
   }
 };
 

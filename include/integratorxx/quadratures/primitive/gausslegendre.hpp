@@ -1,6 +1,7 @@
 #pragma once
 
 #include <integratorxx/quadrature.hpp>
+#include <type_traits>
 #include <integratorxx/util/legendre.hpp>
 #include <vector>
 
@@ -12,6 +13,16 @@ class GaussLegendre :
   public Quadrature<GaussLegendre<PointType,WeightType>> {
 
   using base_type = Quadrature<GaussLegendre<PointType,WeightType>>;
+
+  static_assert(std::is_floating_point_v<PointType> &&
+                std::is_floating_point_v<WeightType>,
+    "GaussLegendre locates its nodes by a scalar Newton iteration whose convergence "
+    "test compares against std::numeric_limits<double>::epsilon(). That test "
+    "cannot succeed for interval- or uncertainty-valued types, whose width "
+    "never falls below what the iteration itself accumulates, and naive Newton "
+    "in interval arithmetic widens rather than contracts. Use a Gauss-Chebyshev "
+    "base quadrature for such types; lifting this restriction requires a "
+    "verified-Newton (interval-Newton) implementation.");
 
 public:
 

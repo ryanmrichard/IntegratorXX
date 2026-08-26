@@ -2,6 +2,7 @@
 
 #include <integratorxx/quadratures/primitive/gausschebyshev2.hpp>
 #include <integratorxx/quadratures/radial/radial_transform.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 
 namespace IntegratorXX {
 
@@ -61,9 +62,11 @@ public:
    */
   template <typename PointType>
   inline auto radial_transform(PointType x) const noexcept {
-    const auto pow_term = std::pow(a + x, alpha_);
-    const auto log_term = std::log((a + 1.0) / (1.0 - x));
-    return R_ * pow_term * log_term / ln_2;
+    using traits = fp_traits<PointType>;
+    const auto one = traits::from_exact(1.0);
+    const auto pow_term = traits::pow(traits::from_exact(a) + x, alpha_);
+    const auto log_term = traits::log((traits::from_exact(a) + one) / (one - x));
+    return R_ * pow_term * log_term / traits::from_inexact(ln_2);
   };
 
 
@@ -75,9 +78,12 @@ public:
    */
   template <typename PointType>
   inline auto radial_jacobian(PointType x) const noexcept {
-    const auto pow_term = std::pow(a + x, alpha_);
-    const auto log_term = std::log((a + 1.0) / (1.0 - x));
-    return R_ * pow_term / ln_2 * ( alpha_ * log_term / (a+x) + (1./(1.-x)) );
+    using traits = fp_traits<PointType>;
+    const auto one = traits::from_exact(1.0);
+    const auto pow_term = traits::pow(traits::from_exact(a) + x, alpha_);
+    const auto log_term = traits::log((traits::from_exact(a) + one) / (one - x));
+    return R_ * pow_term / traits::from_inexact(ln_2)
+         * ( alpha_ * log_term / (traits::from_exact(a) + x) + (one / (one - x)) );
   }
 
 };

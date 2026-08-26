@@ -1,6 +1,7 @@
 #pragma once
 
 #include <integratorxx/quadrature.hpp>
+#include <type_traits>
 #include <integratorxx/util/legendre.hpp>
 #include <vector>
 
@@ -9,6 +10,16 @@ namespace IntegratorXX {
 template <typename PointType, typename WeightType>
 class GaussLobatto : public Quadrature<GaussLobatto<PointType, WeightType>> {
   using base_type = Quadrature<GaussLobatto<PointType, WeightType>>;
+
+  static_assert(std::is_floating_point_v<PointType> &&
+                std::is_floating_point_v<WeightType>,
+    "GaussLobatto locates its nodes by a scalar Newton iteration whose convergence "
+    "test compares against std::numeric_limits<double>::epsilon(). That test "
+    "cannot succeed for interval- or uncertainty-valued types, whose width "
+    "never falls below what the iteration itself accumulates, and naive Newton "
+    "in interval arithmetic widens rather than contracts. Use a Gauss-Chebyshev "
+    "base quadrature for such types; lifting this restriction requires a "
+    "verified-Newton (interval-Newton) implementation.");
 
  public:
   using point_type = typename base_type::point_type;

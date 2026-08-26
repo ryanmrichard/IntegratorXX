@@ -2,6 +2,7 @@
 
 #include <integratorxx/quadratures/primitive/uniform.hpp>
 #include <integratorxx/quadratures/radial/radial_transform.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 #include <vector>
 
 namespace IntegratorXX {
@@ -61,13 +62,7 @@ public:
  *  @tparam WeightType Type describing the quadrature weights 
  */
 template <typename PointType, typename WeightType>
-struct quadrature_traits<
-  MuraKnowles<PointType,WeightType>,
-  std::enable_if_t<
-    std::is_floating_point_v<PointType> &&
-    std::is_floating_point_v<WeightType>
-  >
-> {
+struct quadrature_traits< MuraKnowles<PointType,WeightType> > {
 
   using point_type  = PointType;
   using weight_type = WeightType;
@@ -123,9 +118,10 @@ struct quadrature_traits<
      */
     for( size_t i = 0; i < npts; ++i ) {
       const auto xi       = ux[i+1];
-      const auto one_m_xi3 = 1. - xi*xi*xi;
-      points[i]  = -R * std::log( one_m_xi3 );
-      weights[i] = R * uw[i+1] * 3 * xi * xi / one_m_xi3;
+      using traits = fp_traits<point_type>;
+      const auto one_m_xi3 = traits::from_exact(1.0) - xi*xi*xi;
+      points[i]  = -R * traits::log( one_m_xi3 );
+      weights[i] = R * uw[i+1] * traits::from_exact(3.0) * xi * xi / one_m_xi3;
     }
     
     return std::make_tuple( points, weights );
@@ -162,13 +158,14 @@ public:
 
   template <typename PointType>
   inline auto radial_transform(PointType x) const noexcept {
-    return -R_ * std::log(1.0 - x*x*x);
+    return -R_ * fp_traits<PointType>::log(fp_traits<PointType>::from_exact(1.0) - x*x*x);
   }
 
   template <typename PointType>
   inline auto radial_jacobian(PointType x) const noexcept {
+    using traits = fp_traits<PointType>;
     const auto x2 = x*x;
-    return R_ * 3.0 * x2 / (1.0 - x2 * x);
+    return R_ * traits::from_exact(3.0) * x2 / (traits::from_exact(1.0) - x2 * x);
   }
 
 }; 
