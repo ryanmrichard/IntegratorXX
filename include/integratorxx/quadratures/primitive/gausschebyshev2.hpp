@@ -62,8 +62,9 @@ struct quadrature_traits<GaussChebyshev2<PointType, WeightType>> {
 
   inline static std::tuple<point_container, weight_container> generate(size_t npts) {
     using wtraits = fp_traits<weight_type>;
-    const weight_type pi_ov_npts_p_1 =
-      wtraits::from_inexact(M_PI) / wtraits::from_exact(double(npts + 1));
+    const ixx_int n = IXX_INT(npts);
+    const weight_type pi = wtraits::from_real(ixx_pi);
+    const weight_type pi_ov_npts_p_1 = pi * wtraits::divide_integer(1, n + 1);
 
     weight_container weights(npts);
     point_container points(npts);
@@ -76,13 +77,13 @@ struct quadrature_traits<GaussChebyshev2<PointType, WeightType>> {
       size_t i = npts - idx;
 
       // The standard nodes are given by
-      const auto ti = wtraits::from_exact(double(i)) * pi_ov_npts_p_1;
+      const auto ti = pi * wtraits::divide_integer(IXX_INT(i), n + 1);
       const auto xi = wtraits::cos(ti);
 
       // The quadrature weight, transformed to unit weight factor in
       // [-1,1] is given by (see comments above for explanation)
       const auto wi =
-        pi_ov_npts_p_1 * wtraits::sqrt(wtraits::from_exact(1.0) - xi * xi);
+        pi_ov_npts_p_1 * wtraits::sqrt(wtraits::from_integer(1) - xi * xi);
 
       // Store into memory
       points[idx] = xi;
@@ -95,7 +96,7 @@ struct quadrature_traits<GaussChebyshev2<PointType, WeightType>> {
 
     // Edge case for odd points
     if(npts % 2) {
-      points[npts/2]  = fp_traits<point_type>::from_exact(0.0);
+      points[npts/2]  = fp_traits<point_type>::from_integer(0);
       weights[npts/2] = pi_ov_npts_p_1;
     }
 

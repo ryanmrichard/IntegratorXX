@@ -57,8 +57,9 @@ struct quadrature_traits<GaussChebyshev3<PointType, WeightType>> {
 
   inline static std::tuple<point_container, weight_container> generate(size_t npts) {
     using wtraits = fp_traits<weight_type>;
-    const weight_type pi_ov_2n_p_1 =
-      wtraits::from_inexact(M_PI) / wtraits::from_exact(double(2 * npts + 1));
+    const ixx_int n = IXX_INT(npts);
+    const weight_type pi = wtraits::from_real(ixx_pi);
+    const weight_type pi_ov_2n_p_1 = pi * wtraits::divide_integer(1, 2 * n + 1);
 
     weight_container weights(npts);
     point_container points(npts);
@@ -70,14 +71,14 @@ struct quadrature_traits<GaussChebyshev3<PointType, WeightType>> {
 
       // The standard nodes and weights are given by
       const auto ti =
-        wtraits::from_exact(0.5 * double(2 * i - 1)) * pi_ov_2n_p_1;
+        pi * wtraits::divide_integer(2 * IXX_INT(i) - 1, 2 * (2 * n + 1));
       const auto cti = wtraits::cos(ti);
       const auto xi = cti * cti;  // cos^2(t)
-      auto wi = wtraits::from_exact(2.0) * pi_ov_2n_p_1 * xi;
+      auto wi = wtraits::from_integer(2) * pi_ov_2n_p_1 * xi;
 
       // However, since we want the rule with a unit weight factor, we
       // divide the weights by sqrt(x/(1-x)).
-      wi *= wtraits::sqrt((wtraits::from_exact(1.0) - xi) / xi);
+      wi *= wtraits::sqrt((wtraits::from_integer(1) - xi) / xi);
 
       // Copy to storage
       points[idx]  = xi;

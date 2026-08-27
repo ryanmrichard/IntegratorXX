@@ -60,9 +60,9 @@ struct quadrature_traits<GaussChebyshev1<PointType, WeightType>> {
     weight_container weights(npts);
 
     using wtraits = fp_traits<weight_type>;
-    const weight_type pi_ov_npts =
-      wtraits::from_inexact(M_PI) / wtraits::from_exact(double(npts));
-    const weight_type pi_ov_2npts = pi_ov_npts / wtraits::from_exact(2.0);
+    const ixx_int n = IXX_INT(npts);
+    const weight_type pi = wtraits::from_real(ixx_pi);
+    const weight_type pi_ov_npts = pi * wtraits::divide_integer(1, n);
 
     // Generate the first half explicitly and reflect
     for(size_t idx = 0; idx < npts/2; ++idx) {
@@ -72,13 +72,13 @@ struct quadrature_traits<GaussChebyshev1<PointType, WeightType>> {
       size_t i = npts - idx;
 
       // The standard nodes and weights are given by
-      const auto ti = wtraits::from_exact(2.0 * i - 1.0) * pi_ov_2npts;
+      const auto ti = pi * wtraits::divide_integer(2 * IXX_INT(i) - 1, 2 * n);
       const auto xi = wtraits::cos(ti);
       auto wi = pi_ov_npts;
 
       // However, as we're integrating f(x) not \frac{f(x)}{\sqrt{1 -
       // x^2}}, we must factor the \sqrt{1-x^2} into the weight
-      wi *= wtraits::sqrt(wtraits::from_exact(1.0) - xi * xi);
+      wi *= wtraits::sqrt(wtraits::from_integer(1) - xi * xi);
 
       // Store into memory
       points[idx]  = xi;
@@ -91,7 +91,7 @@ struct quadrature_traits<GaussChebyshev1<PointType, WeightType>> {
 
     // Edge case for odd points
     if(npts % 2) {
-      points[npts/2]  = fp_traits<point_type>::from_exact(0.0);
+      points[npts/2]  = fp_traits<point_type>::from_integer(0);
       weights[npts/2] = pi_ov_npts;
     }
 

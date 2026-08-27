@@ -1,6 +1,7 @@
 #pragma once
 
 #include <integratorxx/quadrature.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 #include <type_traits>
 #include <integratorxx/util/legendre.hpp>
 #include <vector>
@@ -53,6 +54,10 @@ struct quadrature_traits<
 
   inline static std::tuple<point_container,weight_container>
   generate( size_t npts ) {
+    using traits = fp_traits<point_type>;
+    using wtraits = fp_traits<weight_type>;
+    const ixx_int n = IXX_INT(npts);
+
     point_container  points( npts );
     weight_container weights( npts );
 
@@ -67,9 +72,11 @@ struct quadrature_traits<
         const point_type i = static_cast<point_type>(idx+1);
 
         // Standard initial guess for location of i:th root in [-1, 1]
-        point_type z = std::cos( M_PI * (i - 0.25) / (npts + 0.5));
+        point_type z = traits::cos(
+          traits::from_real(ixx_pi)
+          * traits::divide_integer(4 * IXX_INT(idx + 1) - 1, 2 * (2 * n + 1)));
         // Old value of root
-        point_type z_old = -2.0;
+        point_type z_old = -traits::from_integer(2);
         // Values of P_n(x) and dP_n/dx
         point_type p_n, dp_n;
 
@@ -100,7 +107,8 @@ struct quadrature_traits<
         // Quadrature node is z
         point_type  pt = z;
         // Quadrature weight is 2 / [ (1-x^2) dPn(x)^2]
-        weight_type wgt = 2. / ((1. - z*z) * dp_n*dp_n);
+        weight_type wgt = wtraits::from_integer(2)
+                        / ((wtraits::from_integer(1) - z*z) * dp_n*dp_n);
 
         // Store the symmetric points
         points[idx] = -pt;

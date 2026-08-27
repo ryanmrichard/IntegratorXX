@@ -1,18 +1,30 @@
 #!/usr/bin/env python3
-"""Retype the tabulated solid-angle grids from `T` storage to `double` storage.
+"""Rewrite the tabulated solid-angle grids to the ixx_real literal policy.
 
-The s2 tables are declared `static constexpr`, which requires a literal type.
-Types this library should support -- interval arithmetic, uncertainty-
-propagating scalars -- are not literal, so a table templated on `T` cannot be
-instantiated over them. Storing the tables as `double` and converting on read
-(see util/copy_grid.hpp) keeps them usable from constant expressions while
-leaving the quadratures type-generic.
+Two transformations, both mechanical and idempotent:
 
-The surrounding `template <typename T>` is deliberately left in place: `T` is
-unused by the table, but keeping it means none of the ~30 dispatch branches in
-each of the four s2 family headers has to change.
+1. Element type `T` -> `ixx_real`. The tables are `static constexpr`, which
+   requires a literal type, so they cannot be templated on a type such as
+   `sigma::Interval` (wraps `boost::numeric::interval`) or `sigma::Uncertain`
+   (holds an `unordered_map`). Storing them as `ixx_real` and converting on read
+   (see util/copy_grid.hpp) keeps them usable from constant expressions while
+   leaving the quadratures type-generic. Under ENABLE_STRING_REALS `ixx_real`
+   becomes `std::string_view`, so the tables then carry their exact decimal
+   source text rather than a pre-rounded `double`.
 
-Re-run after syncing tables from upstream. Idempotent.
+2. Every table entry wrapped in `IXX_REAL(...)`, which is what makes (1) work in
+   both modes.
+
+Note that entries are wrapped in IXX_REAL *including* the handful whose value is
+integral (0 and +/-1 at the axis points). Those are integral literals and would
+otherwise be spelled IXX_INT, but a std::array is homogeneous, so they must
+share the element type of their neighbours. They convert exactly either way.
+
+The surrounding `template <typename T>` is left in place, though T is no longer
+used by the table itself: keeping it means none of the ~30 dispatch branches in
+each of the four family headers has to change.
+
+Re-run after syncing tables from upstream.
 """
 import argparse
 import pathlib
@@ -21,14 +33,41 @@ import sys
 
 FAMILIES = ("lebedev_laikov", "delley", "ahrens_beylkin", "womersley")
 
-POINTS = re.compile(r"static constexpr std::array<cartesian_pt_t<T>,(\s*)(\d+)> points")
-WEIGHTS = re.compile(r"static constexpr std::array<T,(\s*)(\d+)> weights")
+# Declarations: T (upstream) or double (an earlier revision of this branch).
+POINTS = re.compile(
+    r"static constexpr std::array<cartesian_pt_t<(?:T|double)>,(\s*)(\d+)> points")
+WEIGHTS = re.compile(
+    r"static constexpr std::array<(?:T|double),(\s*)(\d+)> weights")
+
+# Womersley grids are equal-weight and so compute rather than tabulate their
+# weights: `create_array<N, T>(4.0 * M_PI / N.0)`. That form is templated on T
+# (so it breaks for non-literal types), pre-divides in `double`, and materializes
+# N identical values. Replace it with the exact integer N, and let copy_grid form
+# 4*pi/N via divide_integer -- one rounding instead of two, correct in string
+# mode, and a true enclosure for interval types.
+UNIFORM = re.compile(
+    r"[ \t]*static constexpr auto weights = *\n?"
+    r"[ \t]*detail::create_array<(\d+), ?T>\([^;]*\);")
+
+# An initializer body: everything between "= {" and the closing "};".
+BODY = re.compile(r"(=\s*\{)(.*?)(\}\s*;)", re.S)
+
+# A numeric literal, with or without an exponent.
+NUM = re.compile(r"(?<![\w.(])([-+]?\d+\.\d+(?:[eE][-+]?\d+)?)")
+
+
+def wrap_bodies(src: str) -> str:
+    def repl(m: "re.Match[str]") -> str:
+        head, body, tail = m.group(1), m.group(2), m.group(3)
+        if "IXX_REAL(" in body:          # already wrapped; keep idempotent
+            return m.group(0)
+        return head + NUM.sub(r"IXX_REAL(\1)", body) + tail
+    return BODY.sub(repl, src)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--root", default="include/integratorxx/quadratures/s2",
-                    help="directory holding the s2 family subdirectories")
+    ap.add_argument("--root", default="include/integratorxx/quadratures/s2")
     ap.add_argument("--check", action="store_true",
                     help="report what would change; do not write")
     args = ap.parse_args()
@@ -47,14 +86,21 @@ def main() -> int:
     changed = []
     for path in files:
         src = path.read_text()
-        out = WEIGHTS.sub(r"static constexpr std::array<double,\1\2> weights",
-                          POINTS.sub(r"static constexpr std::array<cartesian_pt_t<double>,\1\2> points", src))
+        out = POINTS.sub(
+            r"static constexpr std::array<cartesian_pt_t<ixx_real>,\1\2> points", src)
+        out = WEIGHTS.sub(
+            r"static constexpr std::array<ixx_real,\1\2> weights", out)
+        out = wrap_bodies(out)
+        out = UNIFORM.sub(
+            r"  /// Equal-weight grid: every weight is 4*pi/\1 (sphere area / npts).\n"
+            r"  /// copy_grid forms it exactly; see util/copy_grid.hpp.\n"
+            r"  static constexpr ixx_int uniform_weight_npts = \1;", out)
         if out != src:
             changed.append(path)
             if not args.check:
                 path.write_text(out)
 
-    verb = "would retype" if args.check else "retyped"
+    verb = "would rewrite" if args.check else "rewrote"
     print(f"{verb} {len(changed)} of {len(files)} table files")
     return 1 if (args.check and changed) else 0
 

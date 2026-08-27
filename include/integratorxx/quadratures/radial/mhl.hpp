@@ -52,7 +52,7 @@ public:
   template <typename PointType>
   inline auto radial_transform(PointType x) const noexcept {
     using traits = fp_traits<PointType>;
-    return R_ * traits::pow( x / (traits::from_exact(1.0) - x), M );
+    return R_ * traits::pow( x / (traits::from_integer(1) - x), M );
   }
 
   /**
@@ -65,7 +65,7 @@ public:
   inline auto radial_jacobian(PointType x) const noexcept {
     using traits = fp_traits<PointType>;
     return R_ * M * traits::pow(x, M-1)
-         / traits::pow(traits::from_exact(1.0) - x, M+1);
+         / traits::pow(traits::from_integer(1) - x, M+1);
   }
 
 };

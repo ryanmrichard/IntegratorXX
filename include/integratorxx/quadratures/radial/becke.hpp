@@ -53,7 +53,8 @@ class BeckeRadialTraits : public RadialTraits {
   template <typename PointType>
   inline auto radial_transform(PointType x) const noexcept {
     using traits = fp_traits<PointType>;
-    return R_ * (traits::from_exact(1.0) + x) / (traits::from_exact(1.0) - x);
+    const auto one = traits::from_integer(1);
+    return R_ * (one + x) / (one - x);
   };
 
   /**
@@ -65,7 +66,8 @@ class BeckeRadialTraits : public RadialTraits {
   template <typename PointType>
   inline auto radial_jacobian(PointType x) const noexcept {
     using traits = fp_traits<PointType>;
-    return R_ * traits::from_exact(2.0) / traits::pow(traits::from_exact(1.0) - x, 2);
+    return R_ * traits::from_integer(2)
+         / traits::pow(traits::from_integer(1) - x, 2);
   }
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <integratorxx/quadrature.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 #include <type_traits>
 #include <integratorxx/util/legendre.hpp>
 #include <vector>
@@ -49,8 +50,12 @@ struct quadrature_traits<GaussLobatto<PointType, WeightType>> {
     // Absolute precision for the nodes
     const auto eps = std::numeric_limits<double>::epsilon();
 
+    using traits = fp_traits<point_type>;
+    using wtraits = fp_traits<weight_type>;
+    const ixx_int n = IXX_INT(npts);
+
     // 2/(n(n-1)) appears in many expressions
-    weight_type two_ov_nnm1 = 2.0 / (npts * (npts - 1.0));
+    weight_type two_ov_nnm1 = wtraits::divide_integer(2, n * (n - 1));
 
     // Since the rules are symmetric around the origin, we only need
     // to compute one half of the points
@@ -58,10 +63,12 @@ struct quadrature_traits<GaussLobatto<PointType, WeightType>> {
     for(size_t idx = 1; idx < mid; ++idx) {
       // Initial guess
       const point_type i = static_cast<point_type>(npts - 1 - idx);
-      point_type z = cos (i * M_PI / ( npts - 1.0));
+      point_type z = traits::cos(
+        traits::from_real(ixx_pi)
+        * traits::divide_integer(IXX_INT(npts - 1 - idx), n - 1));
 
       // Old value of root
-      point_type z_old = -2.0;
+      point_type z_old = -traits::from_integer(2);
       // Values of P_{n-1}(x), dP_{n-1}/dx, P_{n-2}(x)
       point_type p_nm1, p_nm2;
 

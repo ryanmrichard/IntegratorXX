@@ -1,7 +1,12 @@
 #pragma once
 
 #include <cmath>
+#include <integratorxx/config.hpp>
 #include <type_traits>
+
+#ifdef ENABLE_STRING_REALS
+#include <charconv>
+#endif
 
 namespace IntegratorXX {
 
@@ -21,7 +26,7 @@ namespace IntegratorXX {
  *  any type whose math functions are reachable by argument-dependent lookup
  *  works with **no specialization at all**. Specialize only when ADL is not
  *  sufficient, or when the default behaviour is wrong for the type -- see
- *  `from_inexact` below for the motivating case.
+ *  `from_real` below for the motivating case.
  *
  *  @tparam T      The floating-point-like type.
  *  @tparam Enable Hook for SFINAE-constrained partial specializations.
@@ -51,43 +56,61 @@ struct fp_traits {
   template <typename U>
   static T pow(const T& x, const U& p) { using std::pow; return pow(x, p); }
 
-  /**
-   *  @brief Convert a `double` that is *exactly* representable in binary
-   *         floating point into @p T.
+  /** @brief Convert an integral value to @p T.
    *
-   *  For literals such as `1.0`, `0.5`, `2.0`, `0.25` and `-2.0`, whose decimal
-   *  spelling has an exact binary representation. Types that model a set of
-   *  values (e.g. intervals) must map these to a *degenerate* value: the
-   *  conversion introduces no error, so none should be manufactured.
+   *  Integral values are exactly representable in every supported arithmetic
+   *  type, so this conversion introduces no error and types that model a set of
+   *  values must map it to a degenerate one.
    *
-   *  Using this where `from_inexact` is required understates the uncertainty of
-   *  a tabulated constant. Using `from_inexact` here is worse: it injects
-   *  spurious width into expressions such as `1.0 - x`, which sit on the
-   *  cancellation-sensitive path of several radial transformations, and so
-   *  inflates the reported error precisely where a tight bound matters most.
-   *
-   *  @param[in] v An exactly-representable value.
+   *  @param[in] v An integral value, normally spelled `IXX_INT(...)`.
    *  @return    @p v as a @p T.
    */
-  static constexpr T from_exact(double v) { return T(v); }
+  static T from_integer(ixx_int v) { return T(v); }
 
-  /**
-   *  @brief Convert a `double` that is *not* exactly representable into @p T.
+  /** @brief Convert a non-integral literal to @p T.
    *
-   *  For tabulated data (the solid-angle quadrature abscissae and weights) and
-   *  for irrational constants such as `ln(2)`. Such values carry at minimum the
-   *  representation error of the decimal literal, and in the tabulated case the
-   *  residual error of whatever nonlinear solve produced them.
+   *  The argument is normally spelled `IXX_REAL(...)`. Its type depends on the
+   *  build: a `double` by default, or the literal's decimal source text when
+   *  `ENABLE_STRING_REALS` is defined.
    *
-   *  The default is a plain conversion, which is correct for types that do not
-   *  claim to bound their own error. Types that *do* make such a claim should
-   *  specialize this to widen the result outward; see the documentation for the
-   *  chosen widening policy.
+   *  @warning In string mode this default parses via `double`, which discards
+   *  exactly the precision the string form exists to preserve. That is the best
+   *  a generic implementation can do, and it keeps `float`/`double` correct, but
+   *  it means **string mode only pays off for types that specialize this
+   *  function**. A type that bounds its own error should parse the text
+   *  directly -- for an interval type, twice under directed rounding -- to
+   *  obtain a tight enclosure of the decimal rather than of an already-rounded
+   *  `double`.
    *
-   *  @param[in] v A value whose binary representation is inexact.
+   *  @param[in] v The literal, as `ixx_real`.
    *  @return    @p v as a @p T.
    */
-  static T from_inexact(double v) { return T(v); }
+  static T from_real(ixx_real v) {
+#ifdef ENABLE_STRING_REALS
+    double d{};
+    std::from_chars(v.data(), v.data() + v.size(), d);
+    return T(d);
+#else
+    return T(v);
+#endif
+  }
+
+  /** @brief Convert the exact rational @p num / @p den to @p T.
+   *
+   *  Prefer this over a pre-divided literal wherever a constant is the ratio of
+   *  two integers. Both operands are exact, so the result of the division is
+   *  the only rounding: for `double` that is the correctly-rounded quotient,
+   *  and for an interval type it is a true enclosure of the rational, neither
+   *  of which is guaranteed by converting a constant that was already rounded
+   *  to `double` by the compiler.
+   *
+   *  @param[in] num The numerator.
+   *  @param[in] den The denominator.
+   *  @return    @p num / @p den as a @p T.
+   */
+  static T divide_integer(ixx_int num, ixx_int den) {
+    return from_integer(num) / from_integer(den);
+  }
 };
 
 } // namespace IntegratorXX
