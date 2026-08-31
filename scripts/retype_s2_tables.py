@@ -4,9 +4,8 @@
 Two transformations, both mechanical and idempotent:
 
 1. Element type `T` -> `ixx_real`. The tables are `static constexpr`, which
-   requires a literal type, so they cannot be templated on a type such as
-   `sigma::Interval` (wraps `boost::numeric::interval`) or `sigma::Uncertain`
-   (holds an `unordered_map`). Storing them as `ixx_real` and converting on read
+   requires a literal type, so they cannot be templated on types such as
+   `boost::numeric::interval`. Storing them as `ixx_real` and converting on read
    (see util/copy_grid.hpp) keeps them usable from constant expressions while
    leaving the quadratures type-generic. Under ENABLE_STRING_REALS `ixx_real`
    becomes `std::string_view`, so the tables then carry their exact decimal
@@ -18,7 +17,11 @@ Two transformations, both mechanical and idempotent:
 Note that entries are wrapped in IXX_REAL *including* the handful whose value is
 integral (0 and +/-1 at the axis points). Those are integral literals and would
 otherwise be spelled IXX_INT, but a std::array is homogeneous, so they must
-share the element type of their neighbours. They convert exactly either way.
+share the element type of their neighbors. Users worried about tracking ULPs
+would likely want these values as integers to avoid any potential rounding 
+errors caused by converting to floating-point values; however, since 0, +/-1 are
+exactly representable as floating-point numbers, no precision is lost by storing
+them as `ixx_real` instead of `ixx_int`.
 
 The surrounding `template <typename T>` is left in place, though T is no longer
 used by the table itself: keeping it means none of the ~30 dispatch branches in
@@ -33,18 +36,18 @@ import sys
 
 FAMILIES = ("lebedev_laikov", "delley", "ahrens_beylkin", "womersley")
 
-# Declarations: T (upstream) or double (an earlier revision of this branch).
+# Declarations: T (upstream).
 POINTS = re.compile(
-    r"static constexpr std::array<cartesian_pt_t<(?:T|double)>,(\s*)(\d+)> points")
+    r"static constexpr std::array<cartesian_pt_t<T>,(\s*)(\d+)> points")
 WEIGHTS = re.compile(
-    r"static constexpr std::array<(?:T|double),(\s*)(\d+)> weights")
+    r"static constexpr std::array<T,(\s*)(\d+)> weights")
 
 # Womersley grids are equal-weight and so compute rather than tabulate their
 # weights: `create_array<N, T>(4.0 * M_PI / N.0)`. That form is templated on T
-# (so it breaks for non-literal types), pre-divides in `double`, and materializes
-# N identical values. Replace it with the exact integer N, and let copy_grid form
-# 4*pi/N via divide_integer -- one rounding instead of two, correct in string
-# mode, and a true enclosure for interval types.
+# (so it breaks for non-literal types), pre-divides in `double`, and 
+# materializes N identical values. Replace it with the exact integer N, and let 
+# copy_grid form 4*pi/N via divide_integer -- one rounding instead of two, 
+# correct in string mode.
 UNIFORM = re.compile(
     r"[ \t]*static constexpr auto weights = *\n?"
     r"[ \t]*detail::create_array<(\d+), ?T>\([^;]*\);")
