@@ -2,64 +2,49 @@
 
 #include <integratorxx/quadrature.hpp>
 #include <integratorxx/util/fp_traits.hpp>
-#include <type_traits>
 #include <integratorxx/util/legendre.hpp>
+#include <type_traits>
 #include <vector>
 
 namespace IntegratorXX {
 
-
 template <typename PointType, typename WeightType>
-class GaussLegendre :
-  public Quadrature<GaussLegendre<PointType,WeightType>> {
+class GaussLegendre : public Quadrature<GaussLegendre<PointType, WeightType>> {
+  using base_type = Quadrature<GaussLegendre<PointType, WeightType>>;
 
-  using base_type = Quadrature<GaussLegendre<PointType,WeightType>>;
+  static_assert(
+      std::is_floating_point_v<PointType> &&
+          std::is_floating_point_v<WeightType>,
+      "GaussLegendre quadrature for arbitrary types is not yet implemented.");
 
-  static_assert(std::is_floating_point_v<PointType> &&
-                std::is_floating_point_v<WeightType>,
-    "GaussLegendre locates its nodes by a scalar Newton iteration whose convergence "
-    "test compares against std::numeric_limits<double>::epsilon(). That test "
-    "cannot succeed for interval- or uncertainty-valued types, whose width "
-    "never falls below what the iteration itself accumulates, and naive Newton "
-    "in interval arithmetic widens rather than contracts. Use a Gauss-Chebyshev "
-    "base quadrature for such types; lifting this restriction requires a "
-    "verified-Newton (interval-Newton) implementation.");
-
-public:
-
-  using point_type       = typename base_type::point_type;
-  using weight_type      = typename base_type::weight_type;
-  using point_container  = typename base_type::point_container;
+ public:
+  using point_type = typename base_type::point_type;
+  using weight_type = typename base_type::weight_type;
+  using point_container = typename base_type::point_container;
   using weight_container = typename base_type::weight_container;
 
-  GaussLegendre(size_t npts):
-    base_type( npts ) { }
+  GaussLegendre(size_t npts) : base_type(npts) {}
 
-  GaussLegendre( const GaussLegendre& ) = default;
-  GaussLegendre( GaussLegendre&& ) noexcept = default;
+  GaussLegendre(const GaussLegendre&) = default;
+  GaussLegendre(GaussLegendre&&) noexcept = default;
 };
 
-
-
 template <typename PointType, typename WeightType>
-struct quadrature_traits<
-  GaussLegendre<PointType,WeightType>
-> {
-
-  using point_type  = PointType;
+struct quadrature_traits<GaussLegendre<PointType, WeightType>> {
+  using point_type = PointType;
   using weight_type = WeightType;
 
-  using point_container  = std::vector< point_type >;
-  using weight_container = std::vector< weight_type >;
+  using point_container = std::vector<point_type>;
+  using weight_container = std::vector<weight_type>;
 
-  inline static std::tuple<point_container,weight_container>
-  generate( size_t npts ) {
+  inline static std::tuple<point_container, weight_container> generate(
+      size_t npts) {
     using traits = fp_traits<point_type>;
     using wtraits = fp_traits<weight_type>;
     const ixx_int n = IXX_INT(npts);
 
-    point_container  points( npts );
-    weight_container weights( npts );
+    point_container points(npts);
+    weight_container weights(npts);
 
     // Absolute precision for the nodes
     const auto eps = std::numeric_limits<double>::epsilon();
@@ -67,60 +52,58 @@ struct quadrature_traits<
     // Since the rules are symmetric around the origin, we only need
     // to compute one half of the points
     const size_t mid = (npts + 1) / 2;
-    for( size_t idx = 0; idx < mid; ++idx ) {
-        // Index
-        const point_type i = static_cast<point_type>(idx+1);
+    for(size_t idx = 0; idx < mid; ++idx) {
+      // Index
+      const point_type i = static_cast<point_type>(idx + 1);
 
-        // Standard initial guess for location of i:th root in [-1, 1]
-        point_type z = traits::cos(
-          traits::from_real(ixx_pi)
-          * traits::divide_integer(4 * IXX_INT(idx + 1) - 1, 2 * (2 * n + 1)));
-        // Old value of root
-        point_type z_old = -traits::from_integer(2);
-        // Values of P_n(x) and dP_n/dx
-        point_type p_n, dp_n;
+      // Standard initial guess for location of i:th root in [-1, 1]
+      point_type z = traits::cos(
+          traits::from_real(ixx_pi) *
+          traits::divide_integer(4 * IXX_INT(idx + 1) - 1, 2 * (2 * n + 1)));
+      // Old value of root
+      point_type z_old = -traits::from_integer(2);
+      // Values of P_n(x) and dP_n/dx
+      point_type p_n, dp_n;
 
-        // Solve the root to eps absolute precision
-        bool converged = false;
-        const int maxit = 100;
-        for(int it = 0; it < maxit; ++it) {
-          // Evaluate the Legendre polynomial at z and its derivative
-          std::tie(p_n, dp_n, std::ignore) = eval_Pn(z,npts);
+      // Solve the root to eps absolute precision
+      bool converged = false;
+      const int maxit = 100;
+      for(int it = 0; it < maxit; ++it) {
+        // Evaluate the Legendre polynomial at z and its derivative
+        std::tie(p_n, dp_n, std::ignore) = eval_Pn(z, npts);
 
-          // Newton update for root
-          z_old = z;
-          z  -= p_n / dp_n;
+        // Newton update for root
+        z_old = z;
+        z -= p_n / dp_n;
 
-          // Convergence check
-          if(std::abs(z-z_old) <= eps) {
-            converged = true;
-            break;
-          }
-        } // end while
-
-        if(!converged) {
-          throw std::runtime_error(
-            "Gauss-Legendre Newton Iterations Failed to Converge"
-          );
+        // Convergence check
+        if(std::abs(z - z_old) <= eps) {
+          converged = true;
+          break;
         }
+      }  // end while
 
-        // Quadrature node is z
-        point_type  pt = z;
-        // Quadrature weight is 2 / [ (1-x^2) dPn(x)^2]
-        weight_type wgt = wtraits::from_integer(2)
-                        / ((wtraits::from_integer(1) - z*z) * dp_n*dp_n);
+      if(!converged) {
+        throw std::runtime_error(
+            "Gauss-Legendre Newton Iterations Failed to Converge");
+      }
 
-        // Store the symmetric points
-        points[idx] = -pt;
-        weights[idx] = wgt;
+      // Quadrature node is z
+      point_type pt = z;
+      // Quadrature weight is 2 / [ (1-x^2) dPn(x)^2]
+      weight_type wgt = wtraits::from_integer(2) /
+                        ((wtraits::from_integer(1) - z * z) * dp_n * dp_n);
 
-        points[npts-1-idx]  = pt;
-        weights[npts-1-idx] = wgt;
-    } // Loop over points
+      // Store the symmetric points
+      points[idx] = -pt;
+      weights[idx] = wgt;
 
-    return std::make_tuple( points, weights );
+      points[npts - 1 - idx] = pt;
+      weights[npts - 1 - idx] = wgt;
+    }  // Loop over points
+
+    return std::make_tuple(points, weights);
   }
-
 };
 
-}
+}  // namespace IntegratorXX
