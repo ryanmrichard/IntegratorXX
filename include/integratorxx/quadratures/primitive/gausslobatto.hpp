@@ -2,8 +2,8 @@
 
 #include <integratorxx/quadrature.hpp>
 #include <integratorxx/util/fp_traits.hpp>
-#include <type_traits>
 #include <integratorxx/util/legendre.hpp>
+#include <type_traits>
 #include <vector>
 
 namespace IntegratorXX {
@@ -13,14 +13,8 @@ class GaussLobatto : public Quadrature<GaussLobatto<PointType, WeightType>> {
   using base_type = Quadrature<GaussLobatto<PointType, WeightType>>;
 
   static_assert(std::is_floating_point_v<PointType> &&
-                std::is_floating_point_v<WeightType>,
-    "GaussLobatto locates its nodes by a scalar Newton iteration whose convergence "
-    "test compares against std::numeric_limits<double>::epsilon(). That test "
-    "cannot succeed for interval- or uncertainty-valued types, whose width "
-    "never falls below what the iteration itself accumulates, and naive Newton "
-    "in interval arithmetic widens rather than contracts. Use a Gauss-Chebyshev "
-    "base quadrature for such types; lifting this restriction requires a "
-    "verified-Newton (interval-Newton) implementation.");
+                    std::is_floating_point_v<WeightType>,
+                "GaussLobatto is not yet implemented for arbitrary types.");
 
  public:
   using point_type = typename base_type::point_type;
@@ -59,13 +53,13 @@ struct quadrature_traits<GaussLobatto<PointType, WeightType>> {
 
     // Since the rules are symmetric around the origin, we only need
     // to compute one half of the points
-    const size_t mid = (npts+1) / 2;
+    const size_t mid = (npts + 1) / 2;
     for(size_t idx = 1; idx < mid; ++idx) {
       // Initial guess
       const point_type i = static_cast<point_type>(npts - 1 - idx);
-      point_type z = traits::cos(
-        traits::from_real(ixx_pi)
-        * traits::divide_integer(IXX_INT(npts - 1 - idx), n - 1));
+      point_type z =
+          traits::cos(traits::from_real(ixx_pi) *
+                      traits::divide_integer(IXX_INT(npts - 1 - idx), n - 1));
 
       // Old value of root
       point_type z_old = -traits::from_integer(2);
@@ -77,7 +71,8 @@ struct quadrature_traits<GaussLobatto<PointType, WeightType>> {
       const int maxit = 100;
       for(int it = 0; it < maxit; ++it) {
         // Evaluate the Legendre polynomial at z and its derivative
-        std::tie(p_nm1, std::ignore, p_nm2) = IntegratorXX::eval_Pn(z, npts - 1);
+        std::tie(p_nm1, std::ignore, p_nm2) =
+            IntegratorXX::eval_Pn(z, npts - 1);
 
         // Newton update for the root. This equation might look
         // peculiar, but it is correct: you can derive it by using
@@ -86,7 +81,7 @@ struct quadrature_traits<GaussLobatto<PointType, WeightType>> {
         // the Legendre polynomials to find that f'(x) = n(n+1)
         // P_{n}(x).
         z_old = z;
-        z -= (z*p_nm1 - p_nm2) / (npts*p_nm1);
+        z -= (z * p_nm1 - p_nm2) / (npts * p_nm1);
         // Convergence check
         if(std::abs(z - z_old) <= eps) {
           converged = true;
@@ -118,9 +113,9 @@ struct quadrature_traits<GaussLobatto<PointType, WeightType>> {
     points[npts - 1] = 1.0;
     weights[npts - 1] = two_ov_nnm1;
 
-    if(npts%2==1) {
+    if(npts % 2 == 1) {
       // Rule with even number of points has a node at the origin
-      points[npts/2]=0.0;
+      points[npts / 2] = 0.0;
     }
 
     return std::make_tuple(points, weights);
