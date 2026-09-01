@@ -2,6 +2,7 @@
 
 #include <integratorxx/quadratures/primitive/gausschebyshev2.hpp>
 #include <integratorxx/quadratures/radial/radial_transform.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 
 namespace IntegratorXX {
 
@@ -21,8 +22,8 @@ class TreutlerAhlrichsRadialTraits : public RadialTraits {
 
 public:
 
-  inline static constexpr double a     = 1.0;
-  inline static constexpr double ln_2  = 0.693147180559945309417232;
+  inline static constexpr ixx_int a    = IXX_INT(1);
+  inline static constexpr ixx_real ln_2 = IXX_REAL(0.693147180559945309417232);
 
   /**
    *  Specify Treutler-Ahlrichs quadrature parameters
@@ -61,9 +62,12 @@ public:
    */
   template <typename PointType>
   inline auto radial_transform(PointType x) const noexcept {
-    const auto pow_term = std::pow(a + x, alpha_);
-    const auto log_term = std::log((a + 1.0) / (1.0 - x));
-    return R_ * pow_term * log_term / ln_2;
+    using traits = fp_traits<PointType>;
+    const auto a_    = traits::from_integer(a);
+    const auto one   = traits::from_integer(1);
+    const auto pow_term = traits::pow(a_ + x, alpha_);
+    const auto log_term = traits::log((a_ + one) / (one - x));
+    return R_ * pow_term * log_term / traits::from_real(ln_2);
   };
 
 
@@ -75,9 +79,13 @@ public:
    */
   template <typename PointType>
   inline auto radial_jacobian(PointType x) const noexcept {
-    const auto pow_term = std::pow(a + x, alpha_);
-    const auto log_term = std::log((a + 1.0) / (1.0 - x));
-    return R_ * pow_term / ln_2 * ( alpha_ * log_term / (a+x) + (1./(1.-x)) );
+    using traits = fp_traits<PointType>;
+    const auto a_    = traits::from_integer(a);
+    const auto one   = traits::from_integer(1);
+    const auto pow_term = traits::pow(a_ + x, alpha_);
+    const auto log_term = traits::log((a_ + one) / (one - x));
+    return R_ * pow_term / traits::from_real(ln_2)
+         * ( alpha_ * log_term / (a_ + x) + (one / (one - x)) );
   }
 
 };

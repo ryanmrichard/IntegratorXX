@@ -1,6 +1,7 @@
 #pragma once
 
 #include <integratorxx/quadrature.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 #include <vector>
 
 namespace IntegratorXX {
@@ -59,7 +60,10 @@ struct quadrature_traits<GaussChebyshev2Modified<PointType, WeightType>> {
   using weight_container = std::vector<weight_type>;
 
   inline static std::tuple<point_container, weight_container> generate(size_t npts) {
-    const weight_type oonpp = 1.0 / (npts + 1);
+    using wtraits = fp_traits<weight_type>;
+    const ixx_int n = IXX_INT(npts);
+    const weight_type pi = wtraits::from_real(ixx_pi);
+    const weight_type oonpp = wtraits::divide_integer(1, n + 1);
 
     point_container points(npts);
     weight_container weights(npts);
@@ -72,16 +76,21 @@ struct quadrature_traits<GaussChebyshev2Modified<PointType, WeightType>> {
       // decreasing order. This generates them in the right order
       size_t i = npts - idx;
 
-      const auto ti = i * M_PI * oonpp;
-      const auto sine = std::sin(ti);
+      const auto ti = pi * wtraits::divide_integer(IXX_INT(i), n + 1);
+      const auto sine = wtraits::sin(ti);
       const auto sinesq = sine * sine;
-      const auto cosine = std::cos(ti);
+      const auto cosine = wtraits::cos(ti);
 
       // Eq 32 in Perez-Jorda et al, 1994, doi:10.1063/1.467061
-      points[idx] = 1.0 - 2.0 * i * oonpp +
-                    M_2_PI * (1.0 + 2.0 / 3.0 * sinesq) * cosine * sine;
+      // 2/pi, formed from exact parts rather than a pre-rounded constant.
+      const auto two_ov_pi = wtraits::from_integer(2) / pi;
+      points[idx] = wtraits::divide_integer(n + 1 - 2 * IXX_INT(i), n + 1)
+                  + two_ov_pi
+                      * (wtraits::from_integer(1)
+                         + wtraits::divide_integer(2, 3) * sinesq)
+                      * cosine * sine;
       // Eq 33 in Perez-Jorda et al, 1994, doi:10.1063/1.467061
-      weights[idx] = 16.0 / 3.0 / (npts + 1.0) * sinesq * sinesq;
+      weights[idx] = wtraits::divide_integer(16, 3 * (n + 1)) * sinesq * sinesq;
 
       // Reflect to second half
       points[i-1]  = -points[idx];
@@ -90,8 +99,8 @@ struct quadrature_traits<GaussChebyshev2Modified<PointType, WeightType>> {
 
     // Edge case for odd points
     if(npts % 2) {
-      points[npts/2]  = 0.0;
-      weights[npts/2] = 16.0 / 3.0 / (npts + 1.0);
+      points[npts/2]  = fp_traits<point_type>::from_integer(0);
+      weights[npts/2] = wtraits::divide_integer(16, 3 * (n + 1));
     }
 
     return std::make_tuple(points, weights);

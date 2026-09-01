@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <integratorxx/config.hpp>
 #include <type_traits>
 
@@ -31,6 +32,49 @@ namespace IntegratorXX {
  */
 template <typename T, typename Enable = void>
 struct fp_traits {
+  /// Natural logarithm of @p x.
+  static T log(const T& x) {
+    using std::log;
+    return log(x);
+  }
+
+  /// Base-e exponential of @p x.
+  static T exp(const T& x) {
+    using std::exp;
+    return exp(x);
+  }
+
+  /// Square root of @p x.
+  static T sqrt(const T& x) {
+    using std::sqrt;
+    return sqrt(x);
+  }
+
+  /// Cosine of @p x.
+  static T cos(const T& x) {
+    using std::cos;
+    return cos(x);
+  }
+
+  /// Sine of @p x.
+  static T sin(const T& x) {
+    using std::sin;
+    return sin(x);
+  }
+
+  /// Absolute value of @p x.
+  static T abs(const T& x) {
+    using std::abs;
+    return abs(x);
+  }
+
+  /// @p x raised to the power @p p.
+  template <typename U>
+  static T pow(const T& x, const U& p) {
+    using std::pow;
+    return pow(x, p);
+  }
+
   /** @brief Convert an integral value to @p T.
    *
    *  Integral values are exactly representable in every supported arithmetic

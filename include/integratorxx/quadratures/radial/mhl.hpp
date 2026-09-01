@@ -2,6 +2,7 @@
 
 #include <integratorxx/quadratures/primitive/uniform.hpp>
 #include <integratorxx/quadratures/radial/radial_transform.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 
 namespace IntegratorXX {
 
@@ -50,7 +51,8 @@ public:
    */
   template <typename PointType>
   inline auto radial_transform(PointType x) const noexcept {
-    return R_ * std::pow( x / (1.0 - x), M );
+    using traits = fp_traits<PointType>;
+    return R_ * traits::pow( x / (traits::from_integer(1) - x), M );
   }
 
   /**
@@ -61,7 +63,9 @@ public:
    */
   template <typename PointType>
   inline auto radial_jacobian(PointType x) const noexcept {
-    return R_ * M * std::pow(x, M-1) / std::pow(1.0 - x, M+1);
+    using traits = fp_traits<PointType>;
+    return R_ * M * traits::pow(x, M-1)
+         / traits::pow(traits::from_integer(1) - x, M+1);
   }
 
 };

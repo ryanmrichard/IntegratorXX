@@ -51,6 +51,13 @@ void copy_grid(PointContainer &points, WeightsContainer &weights) {
   using coord_traits = fp_traits<coord_type>;
   using weight_traits = fp_traits<weight_type>;
 
+  using point_type = typename PointContainer::value_type;
+  using coord_type = typename point_type::value_type;
+  using weight_type = typename WeightsContainer::value_type;
+
+  using coord_traits = fp_traits<coord_type>;
+  using weight_traits = fp_traits<weight_type>;
+
   const auto &static_points = StaticGrid::points;
 
   for(size_t i = 0; i < static_points.size(); ++i)
@@ -61,6 +68,7 @@ void copy_grid(PointContainer &points, WeightsContainer &weights) {
     // Every weight is the sphere's area divided by the point count. Forming it
     // as pi times the exact rational 4/npts is one rounding rather than two,
     // and unlike a pre-divided `double` constant it is correct in string mode
+    // and a true enclosure for types that bound their own error.
     const auto w =
         weight_traits::from_real(ixx_pi) *
         weight_traits::divide_integer(4, StaticGrid::uniform_weight_npts);
