@@ -14,11 +14,12 @@ namespace IntegratorXX {
  *  J. Chem. Phys. 102, 346 (1995)
  *  DOI: https://doi.org/10.1063/1.469408
  */
-class TreutlerAhlrichsRadialTraits : public RadialTraits {
+template <typename T>
+class TreutlerAhlrichsRadialTraits : public RadialTraits<T> {
 
   size_t npts_; ///< Number of grid points
-  double R_; ///< Radial scaling factor
-  double alpha_;
+  T R_; ///< Radial scaling factor
+  T alpha_;
 
 public:
 
@@ -36,16 +37,18 @@ public:
    *  @param[in] R     Radial scaling factor
    *  @param[in] alpha TA exponential factor
    */
-  TreutlerAhlrichsRadialTraits(size_t npts, double R = 1.0, double alpha = 0.6) :
+  TreutlerAhlrichsRadialTraits(size_t npts,
+    T R     = fp_traits<T>::from_real(IXX_REAL(1.0)),
+    T alpha = fp_traits<T>::from_real(IXX_REAL(0.6))) :
     npts_(npts), R_(R), alpha_(alpha) { }
 
   size_t npts() const noexcept { return npts_; }
 
-  std::unique_ptr<RadialTraits> clone() const {
+  std::unique_ptr<RadialTraits<T>> clone() const {
     return std::make_unique<TreutlerAhlrichsRadialTraits>(*this);
   }
 
-  bool compare(const RadialTraits& other) const noexcept {
+  bool compare(const RadialTraits<T>& other) const noexcept {
     auto ptr = dynamic_cast<const TreutlerAhlrichsRadialTraits*>(&other);
     return ptr ? *this == *ptr : false;
   }
@@ -112,7 +115,7 @@ public:
 template <typename PointType, typename WeightType>
 using TreutlerAhlrichs = RadialTransformQuadrature<
   GaussChebyshev2<PointType, WeightType>,
-  TreutlerAhlrichsRadialTraits 
+  TreutlerAhlrichsRadialTraits<PointType>
 >;
 
 namespace detail {

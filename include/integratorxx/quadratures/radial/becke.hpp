@@ -14,10 +14,11 @@ namespace IntegratorXX {
  *  J. Chem. Phys. 88, 2547 (1988)
  *  DOI: https://doi.org/10.1063/1.454033
  */
-class BeckeRadialTraits : public RadialTraits {
+template <typename T>
+class BeckeRadialTraits : public RadialTraits<T> {
 
   size_t npts_; ///< Number of grid points
-  double R_; ///< Radial scaling factor
+  T R_; ///< Radial scaling factor
 
  public:
   /**
@@ -27,15 +28,16 @@ class BeckeRadialTraits : public RadialTraits {
    *
    *  @param[in] R     Radial scaling factor
    */
-  BeckeRadialTraits(size_t npts, double R = 1.0) : npts_(npts), R_(R) {}
+  BeckeRadialTraits(size_t npts, T R = fp_traits<T>::from_real(IXX_REAL(1.0))) :
+    npts_(npts), R_(R) {}
 
   size_t npts() const noexcept { return npts_; }
 
-  std::unique_ptr<RadialTraits> clone() const {
+  std::unique_ptr<RadialTraits<T>> clone() const {
     return std::make_unique<BeckeRadialTraits>(*this);
   }
 
-  bool compare(const RadialTraits& other) const noexcept {
+  bool compare(const RadialTraits<T>& other) const noexcept {
     auto ptr = dynamic_cast<const BeckeRadialTraits*>(&other);
     return ptr ? *this == *ptr : false;
   }
@@ -90,7 +92,7 @@ class BeckeRadialTraits : public RadialTraits {
  */
 template <typename PointType, typename WeightType>
 using Becke = RadialTransformQuadrature<GaussChebyshev2<PointType, WeightType>,
-                                        BeckeRadialTraits>;
+                                        BeckeRadialTraits<PointType>>;
 
 
 namespace detail {

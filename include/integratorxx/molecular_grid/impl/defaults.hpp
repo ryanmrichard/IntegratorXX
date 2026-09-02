@@ -22,7 +22,7 @@ constexpr long double pm_to_bohr( long double x ) {
 }
 
 /// Slater, J.C. J. Chem. Phys. 41, 3199, 1964. https://doi.org/10.1063/1.1725697
-double slater_radius_64( AtomicId Z ) {
+inline double slater_radius_64( AtomicId Z ) {
   switch(Z) {
     case 1:  /* H  */ return pm_to_bohr(25. );
   //case 2:  /* He */ return pm_to_bohr(120.);
@@ -124,7 +124,7 @@ double slater_radius_64( AtomicId Z ) {
 }
 
 /// Slater, J.C. Phys. Rev. 36, 57, 1930. https://doi.org/10.1103/PhysRev.36.57
-double slater_radius_30( AtomicId Z ) {
+inline double slater_radius_30( AtomicId Z ) {
   switch(Z) {
     case 1:   /* H  */ return pm_to_bohr(53. );
 
@@ -202,7 +202,7 @@ double slater_radius_30( AtomicId Z ) {
 
 /// Clementi, E., Raimondi, D.L., Reinhardt, W.P. J. Chem. Phys. 47, 1300, 1967.
 /// https://doi.org/10.1063/1.1712084
-double clementi_radius_67( AtomicId Z ) {
+inline double clementi_radius_67( AtomicId Z ) {
   switch(Z) {
     case 2:   /* He */ return pm_to_bohr(31. );
 
@@ -299,7 +299,7 @@ double clementi_radius_67( AtomicId Z ) {
   }
 }
 
-double default_atomic_radius( AtomicId Z ) {
+inline double default_atomic_radius( AtomicId Z ) {
   // If the radius is in Slater-64, use it as the default
   auto slater_64 = slater_radius_64(Z);
   if( slater_64 > 0. ) return slater_64;
@@ -312,7 +312,7 @@ double default_atomic_radius( AtomicId Z ) {
   return 3.79835;
 }
 
-double default_mk_radial_scaling_factor( AtomicId Z ) {
+inline double default_mk_radial_scaling_factor( AtomicId Z ) {
   switch(Z) {
     case 3:
     case 4:
@@ -332,7 +332,7 @@ double default_mk_radial_scaling_factor( AtomicId Z ) {
   }
 }
 
-double default_ta_radial_scaling_factor( AtomicId Z ) {
+inline double default_ta_radial_scaling_factor( AtomicId Z ) {
   switch(Z) {
     case 1: return  0.8; // H
     case 2: return  0.9; // He
@@ -375,12 +375,12 @@ double default_ta_radial_scaling_factor( AtomicId Z ) {
   }
 }
 
-double default_mhl_radial_scaling_factor( AtomicId Z ) {
+inline double default_mhl_radial_scaling_factor( AtomicId Z ) {
   const double fac = (Z != 1) ? 0.5 : 1.0;
   return default_atomic_radius(Z) * fac;
 }
 
-double default_radial_scaling_factor( RadialQuad rq, AtomicId Z ) {
+inline double default_radial_scaling_factor( RadialQuad rq, AtomicId Z ) {
   if( rq == RadialQuad::MuraKnowles )
     return default_mk_radial_scaling_factor(Z);
   else if( rq == RadialQuad::TreutlerAhlrichs )
@@ -389,7 +389,7 @@ double default_radial_scaling_factor( RadialQuad rq, AtomicId Z ) {
     return default_mhl_radial_scaling_factor(Z);
 }
 
-std::tuple<size_t,size_t> default_grid_size( AtomicId Z, RadialQuad /*rq*/, AtomicGridSizeDefault s ) {
+inline std::tuple<size_t,size_t> default_grid_size( AtomicId Z, RadialQuad /*rq*/, AtomicGridSizeDefault s ) {
   switch(s) {
     case AtomicGridSizeDefault::GM3:
       return std::make_tuple( size_t(35), size_t(110) );
@@ -412,50 +412,60 @@ std::tuple<size_t,size_t> default_grid_size( AtomicId Z, RadialQuad /*rq*/, Atom
   }
 }
 
-UnprunedSphericalGridSpecification MolecularGridDefaults::create_default_unpruned_grid_spec(
+template <typename T>
+UnprunedSphericalGridSpecification<T> MolecularGridDefaults<T>::create_default_unpruned_grid_spec(
   AtomicId Z, RadialQuad rq, size_t radial_size, size_t angular_size
 ) {
-  auto radial_traits = make_radial_traits( rq, radial_size, default_radial_scaling_factor(rq,Z) );
+  // default_radial_scaling_factor returns a runtime-computed `double` (a
+  // table lookup, not a source-text literal), so `T(...)` -- not
+  // fp_traits<T>::from_real, which expects an `ixx_real` literal token --
+  // is the correct conversion here; it's also what from_real itself falls
+  // back to for a plain (non-string) build.
+  auto radial_traits = make_radial_traits<T>( rq, radial_size,
+    T(default_radial_scaling_factor(rq,Z)) );
   // GauXC only ever pairs its default radial schemes with Lebedev-Laikov
   // angular grids; matched here for behavioral parity.
-  return UnprunedSphericalGridSpecification(
+  return UnprunedSphericalGridSpecification<T>(
     rq, *radial_traits, AngularQuad::LebedevLaikov, angular_size
   );
 }
 
-UnprunedSphericalGridSpecification MolecularGridDefaults::create_default_unpruned_grid_spec(
+template <typename T>
+UnprunedSphericalGridSpecification<T> MolecularGridDefaults<T>::create_default_unpruned_grid_spec(
   AtomicId Z, RadialQuad rq, AtomicGridSizeDefault standard_grid
 ) {
   auto [rsz, asz] = default_grid_size(Z, rq, standard_grid);
   return create_default_unpruned_grid_spec(Z, rq, rsz, asz);
 }
 
-std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr>
-  MolecularGridDefaults::generate_gridmap(
-    const std::unordered_map<AtomicId, PrunedSphericalGridSpecification>& gs_map
+template <typename T>
+std::unordered_map<AtomicId, typename SphericalGridFactory<T>::spherical_grid_ptr>
+  MolecularGridDefaults<T>::generate_gridmap(
+    const std::unordered_map<AtomicId, PrunedSphericalGridSpecification<T>>& gs_map
   ) {
 
-  std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr> molmap;
+  std::unordered_map<AtomicId, typename SphericalGridFactory<T>::spherical_grid_ptr> molmap;
   for( const auto& [key, val] : gs_map )
-    molmap.emplace( key, SphericalGridFactory::generate_grid(val) );
+    molmap.emplace( key, SphericalGridFactory<T>::generate_grid(val) );
   return molmap;
 }
 
-std::vector<AtomInstance> make_atom_instances(
-  const std::vector<AtomicId>&               atomic_ids,
-  const std::vector<cartesian_pt_t<double>>& positions,
-  const std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr>& element_grids
+template <typename T>
+std::vector<AtomInstance<T>> make_atom_instances(
+  const std::vector<AtomicId>&          atomic_ids,
+  const std::vector<cartesian_pt_t<T>>& positions,
+  const std::unordered_map<AtomicId, typename SphericalGridFactory<T>::spherical_grid_ptr>& element_grids
 ) {
   if( atomic_ids.size() != positions.size() )
     throw std::invalid_argument("make_atom_instances: atomic_ids/positions size mismatch");
 
-  std::vector<AtomInstance> atoms;
+  std::vector<AtomInstance<T>> atoms;
   atoms.reserve( atomic_ids.size() );
   for( size_t i = 0; i < atomic_ids.size(); ++i ) {
     auto it = element_grids.find( atomic_ids[i] );
     if( it == element_grids.end() )
       throw std::out_of_range("make_atom_instances: no grid template for the requested atomic id");
-    atoms.push_back( AtomInstance{ positions[i], it->second } );
+    atoms.push_back( AtomInstance<T>{ positions[i], it->second } );
   }
   return atoms;
 }

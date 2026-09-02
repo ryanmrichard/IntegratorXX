@@ -32,8 +32,8 @@ std::ostream& operator<<( std::ostream& out, IntegratorXX::PruningRegion p) {
   
   return out;
 }
-std::ostream& operator<<( std::ostream& out, 
-  IntegratorXX::PrunedSphericalGridSpecification p) {
+std::ostream& operator<<( std::ostream& out,
+  IntegratorXX::PrunedSphericalGridSpecification<double> p) {
 
 
   using namespace IntegratorXX;
@@ -81,7 +81,7 @@ TEST_CASE( "Pruning Schemes", "[sph-gen]" ) {
 
   using namespace IntegratorXX;
 
-  auto rad_traits = make_radial_traits(RadialQuad::MuraKnowles, 99, 1.0);
+  auto rad_traits = make_radial_traits<double>(RadialQuad::MuraKnowles, 99, 1.0);
 
   SECTION("Ahrens-Beylkin") {
 
@@ -94,7 +94,7 @@ TEST_CASE( "Pruning Schemes", "[sph-gen]" ) {
       AngularQuad::AhrensBeylkin, 372
     );
 
-    PrunedSphericalGridSpecification pruning_spec, ref_pruning_spec;
+    PrunedSphericalGridSpecification<double> pruning_spec, ref_pruning_spec;
 
     SECTION("Robust") {
       pruning_spec = robust_psi4_pruning_scheme(unp);
@@ -130,7 +130,7 @@ TEST_CASE( "Pruning Schemes", "[sph-gen]" ) {
       AngularQuad::Delley, 302
     };
 
-    PrunedSphericalGridSpecification pruning_spec, ref_pruning_spec;
+    PrunedSphericalGridSpecification<double> pruning_spec, ref_pruning_spec;
 
     SECTION("Robust") {
       pruning_spec = robust_psi4_pruning_scheme(unp);
@@ -166,7 +166,7 @@ TEST_CASE( "Pruning Schemes", "[sph-gen]" ) {
       AngularQuad::LebedevLaikov, 302
     };
 
-    PrunedSphericalGridSpecification pruning_spec, ref_pruning_spec;
+    PrunedSphericalGridSpecification<double> pruning_spec, ref_pruning_spec;
 
     SECTION("Robust") {
       pruning_spec = robust_psi4_pruning_scheme(unp);
@@ -202,7 +202,7 @@ TEST_CASE( "Pruning Schemes", "[sph-gen]" ) {
       AngularQuad::Womersley, 339
     };
 
-    PrunedSphericalGridSpecification pruning_spec, ref_pruning_spec;
+    PrunedSphericalGridSpecification<double> pruning_spec, ref_pruning_spec;
 
     SECTION("Robust") {
       pruning_spec = robust_psi4_pruning_scheme(unp);
@@ -244,8 +244,8 @@ TEMPLATE_LIST_TEST_CASE("Radial Generator", "[sph-gen]", radial_test_types) {
   size_t npts = 10;
   radial_type rq(npts, 1.0);
   auto rad_spec = radial_from_type<radial_type>();
-  auto rad_traits = make_radial_traits(rad_spec, npts, 1.0);
-  auto rad_grid = RadialFactory::generate(rad_spec, *rad_traits);
+  auto rad_traits = make_radial_traits<double>(rad_spec, npts, 1.0);
+  auto rad_grid = RadialFactory<double>::generate(rad_spec, *rad_traits);
 
   REQUIRE(rad_grid->npts() == npts);
   for(auto i = 0; i < npts; ++i) {
@@ -274,7 +274,7 @@ TEMPLATE_LIST_TEST_CASE("S2 Generator", "[sph-gen]", s2_test_types) {
   angular_type aq(npts);
   
   auto ang_spec = angular_from_type<angular_type>();
-  auto ang_grid = S2Factory::generate(ang_spec, npts);
+  auto ang_grid = S2Factory<double>::generate(ang_spec, npts);
   REQUIRE(ang_grid->npts() == npts);
   for(auto i = 0; i < npts; ++i) {
     auto pt = ang_grid->points()[i];
@@ -334,13 +334,13 @@ TEMPLATE_LIST_TEST_CASE("Unpruned", "[sph-gen]", sph_test_types) {
 
   // Generate via runtime API
   auto rad_spec = radial_from_type<radial_type>();
-  auto rad_traits = make_radial_traits(rad_spec, nrad, 1.0);
+  auto rad_traits = make_radial_traits<double>(rad_spec, nrad, 1.0);
   UnprunedSphericalGridSpecification unp(
     rad_spec, *rad_traits,
     angular_from_type<angular_type>(), nang
   );
 
-  auto sph = SphericalGridFactory::generate_grid(unp);
+  auto sph = SphericalGridFactory<double>::generate_grid(unp);
 
   // Check that they're the same
   REQUIRE(sph->npts() == sph_ref.npts());
@@ -374,7 +374,7 @@ TEMPLATE_LIST_TEST_CASE("Pruned", "[sph-gen]", sph_test_types) {
 
   // Generate pruning scheme
   auto rad_spec = radial_from_type<radial_type>();
-  auto rad_traits = make_radial_traits(rad_spec, nrad, 1.0);
+  auto rad_traits = make_radial_traits<double>(rad_spec, nrad, 1.0);
   UnprunedSphericalGridSpecification unp(
     rad_spec, *rad_traits,
     angular_from_type<angular_type>(), nang
@@ -397,7 +397,7 @@ TEMPLATE_LIST_TEST_CASE("Pruned", "[sph-gen]", sph_test_types) {
 
   // Generate via runtime API
 
-  auto sph = SphericalGridFactory::generate_grid(pruning_spec);
+  auto sph = SphericalGridFactory<double>::generate_grid(pruning_spec);
 
   // Check that they're the same
   REQUIRE(sph->npts() == sph_ref.npts());

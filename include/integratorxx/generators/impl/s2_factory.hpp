@@ -21,21 +21,4 @@ AngularQuad angular_from_string(std::string name) {
   throw std::runtime_error("Unrecognized Angular Quadrature");
 }
 
-S2Factory::s2_grid_ptr S2Factory::generate(AngularQuad aq, size_t npts) {
-
-  switch(aq) {
-    case AngularQuad::AhrensBeylkin:
-      return std::make_unique<ah_type>(npts);
-    case AngularQuad::Delley:
-      return std::make_unique<de_type>(npts);
-    case AngularQuad::LebedevLaikov:
-      return std::make_unique<ll_type>(npts);
-    case AngularQuad::Womersley:
-      return std::make_unique<wo_type>(npts);
-    default:
-      throw std::runtime_error("Unsupported Angular Quadrature");
-      abort();
-  } 
-}
-
 }

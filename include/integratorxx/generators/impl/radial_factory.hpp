@@ -1,8 +1,6 @@
 #pragma once
 #include <integratorxx/generators/radial_factory.hpp>
 
-#include <integratorxx/generators/impl/radial_types.hpp>
-
 #include <algorithm>
 
 namespace IntegratorXX {
@@ -20,23 +18,5 @@ RadialQuad radial_from_string(std::string name) {
 
   throw std::runtime_error("Unrecognized Radial Quadrature");
 }
-
-RadialFactory::radial_grid_ptr RadialFactory::generate(RadialQuad rq, const RadialTraits& traits) {
-
-  switch(rq) {
-    case RadialQuad::Becke:
-      return std::make_unique<bk_type>(traits);
-    case RadialQuad::MuraKnowles:
-      return std::make_unique<mk_type>(traits);
-    case RadialQuad::MurrayHandyLaming:
-      return std::make_unique<mhl_type>(traits);
-    case RadialQuad::TreutlerAhlrichs:
-      return std::make_unique<ta_type>(traits);
-    default:
-      throw std::runtime_error("Unsupported Radial Quadrature");
-      abort();
-  } 
-}
-
 
 }

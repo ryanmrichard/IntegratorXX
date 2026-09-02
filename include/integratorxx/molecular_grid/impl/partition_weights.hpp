@@ -19,6 +19,7 @@
 
 #include <integratorxx/molecular_grid/molecular_grid.hpp>
 #include <integratorxx/molecular_grid/partition_weights.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -28,18 +29,24 @@
 
 namespace IntegratorXX {
 
-void reference_becke_partition_weights( MolecularGrid& mg ) {
+template <typename T>
+void reference_becke_partition_weights( MolecularGrid<T>& mg ) {
 
-  auto hBecke = []( double x ) { return 1.5*x - 0.5*x*x*x; };       // Eq. 19
-  auto gBecke = [&]( double x ) { return hBecke(hBecke(hBecke(x))); }; // Eq. 20 f_3
+  using traits = fp_traits<T>;
+  const auto c1_5 = traits::from_real(IXX_REAL(1.5));
+  const auto c0_5 = traits::from_real(IXX_REAL(0.5));
+  const auto c1   = traits::from_integer(1);
+
+  auto hBecke = [&]( auto x ) { return c1_5*x - c0_5*x*x*x; };       // Eq. 19
+  auto gBecke = [&]( auto x ) { return hBecke(hBecke(hBecke(x))); }; // Eq. 20 f_3
 
   const size_t natoms = mg.natoms();
   const auto&  RAB     = mg.atom_rab_;
   const auto&  points  = mg.points_cache_;
         auto&  weights = mg.weights_cache_;
 
-  std::vector<double> partitionScratch( natoms );
-  std::vector<double> atomDist( natoms );
+  std::vector<T> partitionScratch( natoms );
+  std::vector<T> atomDist( natoms );
 
   for( size_t ia = 0; ia < natoms; ++ia ) {
     const size_t pt_begin = mg.atom_point_offset_[ia];
@@ -51,24 +58,24 @@ void reference_becke_partition_weights( MolecularGrid& mg ) {
 
       // Compute distances of each center to point
       for( size_t iA = 0; iA < natoms; ++iA ) {
-        const double dx = point[0] - mg.atoms_[iA].center[0];
-        const double dy = point[1] - mg.atoms_[iA].center[1];
-        const double dz = point[2] - mg.atoms_[iA].center[2];
-        atomDist[iA] = std::sqrt(dx*dx + dy*dy + dz*dz);
+        const T dx = point[0] - mg.atoms_[iA].center[0];
+        const T dy = point[1] - mg.atoms_[iA].center[1];
+        const T dz = point[2] - mg.atoms_[iA].center[2];
+        atomDist[iA] = traits::sqrt(dx*dx + dy*dy + dz*dz);
       }
 
       // Evaluate unnormalized partition functions
-      std::fill( partitionScratch.begin(), partitionScratch.end(), 1. );
+      std::fill( partitionScratch.begin(), partitionScratch.end(), c1 );
       for( size_t iA = 0; iA < natoms; ++iA )
       for( size_t jA = 0; jA < iA;     ++jA ) {
-        const double mu = (atomDist[iA] - atomDist[jA]) / RAB[jA + iA*natoms];
-        const double g  = gBecke(mu);
-        partitionScratch[iA] *= 0.5 * (1. - g);
-        partitionScratch[jA] *= 0.5 * (1. + g);
+        const T mu = (atomDist[iA] - atomDist[jA]) / RAB[jA + iA*natoms];
+        const T g  = gBecke(mu);
+        partitionScratch[iA] *= c0_5 * (c1 - g);
+        partitionScratch[jA] *= c0_5 * (c1 + g);
       }
 
       // Normalization
-      double sum = 0.;
+      T sum = traits::from_integer(0);
       for( size_t iA = 0; iA < natoms; ++iA ) sum += partitionScratch[iA];
 
       // Update weight
@@ -77,15 +84,32 @@ void reference_becke_partition_weights( MolecularGrid& mg ) {
   }
 }
 
-void reference_ssf_partition_weights( MolecularGrid& mg ) {
+template <typename T>
+void reference_ssf_partition_weights( MolecularGrid<T>& mg ) {
 
-  auto gFrisch = []( double x ) {
-    const double s_x  = x / ssf_magic_factor;
-    const double s_x2 = s_x  * s_x;
-    const double s_x3 = s_x  * s_x2;
-    const double s_x5 = s_x3 * s_x2;
-    const double s_x7 = s_x5 * s_x2;
-    return (35.*(s_x - s_x3) + 21.*s_x5 - 5.*s_x7) / 16.;
+  using traits = fp_traits<T>;
+  // IXX_REAL stringifies its argument in string-literal mode, so the
+  // dimensionless constants below must be spelled as literals here rather
+  // than referencing ssf_magic_factor/ssf_weight_tol directly -- kept in
+  // sync with the `constexpr double` definitions in partition_weights.hpp.
+  static_assert(ssf_magic_factor == 0.64 && ssf_weight_tol == 1e-10,
+    "keep the IXX_REAL literals below in sync with these constants");
+  const auto magic  = traits::from_real(IXX_REAL(0.64));
+  const auto tol    = traits::from_real(IXX_REAL(1e-10));
+  const auto c1     = traits::from_integer(1);
+  const auto c0_5   = traits::from_real(IXX_REAL(0.5));
+  const auto c35    = traits::from_real(IXX_REAL(35.0));
+  const auto c21    = traits::from_real(IXX_REAL(21.0));
+  const auto c5     = traits::from_real(IXX_REAL(5.0));
+  const auto c16    = traits::from_real(IXX_REAL(16.0));
+
+  auto gFrisch = [&]( auto x ) {
+    const auto s_x  = x / magic;
+    const auto s_x2 = s_x  * s_x;
+    const auto s_x3 = s_x  * s_x2;
+    const auto s_x5 = s_x3 * s_x2;
+    const auto s_x7 = s_x5 * s_x2;
+    return (c35*(s_x - s_x3) + c21*s_x5 - c5*s_x7) / c16;
   };
 
   const size_t natoms = mg.natoms();
@@ -94,13 +118,13 @@ void reference_ssf_partition_weights( MolecularGrid& mg ) {
   const auto&  points       = mg.points_cache_;
         auto&  weights      = mg.weights_cache_;
 
-  std::vector<double> partitionScratch( natoms );
-  std::vector<double> atomDist( natoms );
+  std::vector<T> partitionScratch( natoms );
+  std::vector<T> atomDist( natoms );
 
   for( size_t ia = 0; ia < natoms; ++ia ) {
     const size_t pt_begin = mg.atom_point_offset_[ia];
     const size_t pt_end   = mg.atom_point_offset_[ia + 1];
-    const double dist_cutoff = 0.5 * (1. - ssf_magic_factor) * dist_nearest[ia];
+    const T dist_cutoff = c0_5 * (c1 - magic) * dist_nearest[ia];
 
     for( size_t ip = pt_begin; ip < pt_end; ++ip ) {
       const auto& point = points[ip];
@@ -108,10 +132,10 @@ void reference_ssf_partition_weights( MolecularGrid& mg ) {
 
       // Compute dist to parent atom
       {
-        const double dx = point[0] - mg.atoms_[ia].center[0];
-        const double dy = point[1] - mg.atoms_[ia].center[1];
-        const double dz = point[2] - mg.atoms_[ia].center[2];
-        atomDist[ia] = std::sqrt(dx*dx + dy*dy + dz*dz);
+        const T dx = point[0] - mg.atoms_[ia].center[0];
+        const T dy = point[1] - mg.atoms_[ia].center[1];
+        const T dz = point[2] - mg.atoms_[ia].center[2];
+        atomDist[ia] = traits::sqrt(dx*dx + dy*dy + dz*dz);
       }
 
       if( atomDist[ia] < dist_cutoff ) continue; // Partition weight = 1
@@ -119,34 +143,34 @@ void reference_ssf_partition_weights( MolecularGrid& mg ) {
       // Compute distances of each (other) center to point
       for( size_t iA = 0; iA < natoms; ++iA ) {
         if( iA == ia ) continue;
-        const double dx = point[0] - mg.atoms_[iA].center[0];
-        const double dy = point[1] - mg.atoms_[iA].center[1];
-        const double dz = point[2] - mg.atoms_[iA].center[2];
-        atomDist[iA] = std::sqrt(dx*dx + dy*dy + dz*dz);
+        const T dx = point[0] - mg.atoms_[iA].center[0];
+        const T dy = point[1] - mg.atoms_[iA].center[1];
+        const T dz = point[2] - mg.atoms_[iA].center[2];
+        atomDist[iA] = traits::sqrt(dx*dx + dy*dy + dz*dz);
       }
 
       // Evaluate unnormalized partition functions
-      std::fill( partitionScratch.begin(), partitionScratch.end(), 1. );
+      std::fill( partitionScratch.begin(), partitionScratch.end(), c1 );
       for( size_t iA = 0; iA < natoms; ++iA )
       for( size_t jA = 0; jA < iA;     ++jA )
-      if( partitionScratch[iA] > ssf_weight_tol ||
-          partitionScratch[jA] > ssf_weight_tol ) {
+      if( partitionScratch[iA] > tol ||
+          partitionScratch[jA] > tol ) {
 
-        const double mu = (atomDist[iA] - atomDist[jA]) / RAB[jA + iA*natoms];
+        const T mu = (atomDist[iA] - atomDist[jA]) / RAB[jA + iA*natoms];
 
-        if( mu <= -ssf_magic_factor ) {
-          partitionScratch[jA] = 0.;
-        } else if( mu >= ssf_magic_factor ) {
-          partitionScratch[iA] = 0.;
+        if( mu <= -magic ) {
+          partitionScratch[jA] = traits::from_integer(0);
+        } else if( mu >= magic ) {
+          partitionScratch[iA] = traits::from_integer(0);
         } else {
-          const double g = 0.5 * (1. - gFrisch(mu));
+          const T g = c0_5 * (c1 - gFrisch(mu));
           partitionScratch[iA] *= g;
-          partitionScratch[jA] *= 1. - g;
+          partitionScratch[jA] *= c1 - g;
         }
       }
 
       // Normalization
-      double sum = 0.;
+      T sum = traits::from_integer(0);
       for( size_t iA = 0; iA < natoms; ++iA ) sum += partitionScratch[iA];
 
       // Update weight
@@ -155,18 +179,29 @@ void reference_ssf_partition_weights( MolecularGrid& mg ) {
   }
 }
 
-void reference_lko_partition_weights( MolecularGrid& mg ) {
+template <typename T>
+void reference_lko_partition_weights( MolecularGrid<T>& mg ) {
 
-  auto hBecke = []( double x ) { return 1.5*x - 0.5*x*x*x; };
-  auto gBecke = [&]( double x ) { return hBecke(hBecke(hBecke(x))); };
+  using traits = fp_traits<T>;
+  const auto c1_5 = traits::from_real(IXX_REAL(1.5));
+  const auto c0_5 = traits::from_real(IXX_REAL(0.5));
+  const auto c1   = traits::from_integer(1);
+  // See the note in reference_ssf_partition_weights: IXX_REAL stringifies
+  // its argument, so this must be a literal kept in sync with lko_r_cutoff.
+  static_assert(lko_r_cutoff == 5.0,
+    "keep the IXX_REAL literal below in sync with lko_r_cutoff");
+  const auto r_cutoff = traits::from_real(IXX_REAL(5.0));
+
+  auto hBecke = [&]( auto x ) { return c1_5*x - c0_5*x*x*x; };
+  auto gBecke = [&]( auto x ) { return hBecke(hBecke(hBecke(x))); };
 
   const size_t natoms = mg.natoms();
   const auto&  RAB     = mg.atom_rab_;
   const auto&  points  = mg.points_cache_;
         auto&  weights = mg.weights_cache_;
 
-  std::vector<double> partitionScratch( natoms );
-  std::vector<double> atomDist( natoms );
+  std::vector<T> partitionScratch( natoms );
+  std::vector<T> atomDist( natoms );
   std::vector<size_t> inter_atom_dist_idx( natoms );
   std::vector<size_t> point_dist_idx( natoms );
 
@@ -174,7 +209,7 @@ void reference_lko_partition_weights( MolecularGrid& mg ) {
     const size_t pt_begin = mg.atom_point_offset_[iAtom];
     const size_t pt_end   = mg.atom_point_offset_[iAtom + 1];
 
-    const double* RAB_parent = RAB.data() + iAtom*natoms;
+    const T* RAB_parent = RAB.data() + iAtom*natoms;
 
     std::iota( inter_atom_dist_idx.begin(), inter_atom_dist_idx.end(), 0 );
     std::sort( inter_atom_dist_idx.begin(), inter_atom_dist_idx.end(),
@@ -184,29 +219,29 @@ void reference_lko_partition_weights( MolecularGrid& mg ) {
       auto& weight = weights[ip];
       const auto point = points[ip];
 
-      std::fill( atomDist.begin(), atomDist.end(), std::numeric_limits<double>::infinity() );
+      std::fill( atomDist.begin(), atomDist.end(), traits::infinity() );
 
       // Parent distance
       {
-        const double dx = point[0] - mg.atoms_[iAtom].center[0];
-        const double dy = point[1] - mg.atoms_[iAtom].center[1];
-        const double dz = point[2] - mg.atoms_[iAtom].center[2];
-        atomDist[iAtom] = std::sqrt(dx*dx + dy*dy + dz*dz);
+        const T dx = point[0] - mg.atoms_[iAtom].center[0];
+        const T dy = point[1] - mg.atoms_[iAtom].center[1];
+        const T dz = point[2] - mg.atoms_[iAtom].center[2];
+        atomDist[iAtom] = traits::sqrt(dx*dx + dy*dy + dz*dz);
       }
 
-      double r_parent  = atomDist[iAtom];
-      double r_nearest = r_parent;
+      T r_parent  = atomDist[iAtom];
+      T r_nearest = r_parent;
       size_t natoms_keep = 1;
 
       // Compute distances of nearby centers to point (near-field pruning)
       for( size_t iA = 1; iA < natoms; ++iA ) {
         auto idx = inter_atom_dist_idx[iA];
-        if( RAB_parent[idx] > (r_parent + r_nearest + 2*lko_r_cutoff) ) break;
+        if( RAB_parent[idx] > (r_parent + r_nearest + traits::from_integer(2)*r_cutoff) ) break;
 
-        const double dx = point[0] - mg.atoms_[idx].center[0];
-        const double dy = point[1] - mg.atoms_[idx].center[1];
-        const double dz = point[2] - mg.atoms_[idx].center[2];
-        const double r = std::sqrt(dx*dx + dy*dy + dz*dz);
+        const T dx = point[0] - mg.atoms_[idx].center[0];
+        const T dy = point[1] - mg.atoms_[idx].center[1];
+        const T dz = point[2] - mg.atoms_[idx].center[2];
+        const T r = traits::sqrt(dx*dx + dy*dy + dz*dz);
 
         r_nearest = std::min( r_nearest, r );
         atomDist[idx] = r;
@@ -214,15 +249,15 @@ void reference_lko_partition_weights( MolecularGrid& mg ) {
       }
 
       // Partition weight is 0
-      if( r_parent > r_nearest + lko_r_cutoff ) {
-        weight = 0.;
+      if( r_parent > r_nearest + r_cutoff ) {
+        weight = traits::from_integer(0);
         continue;
       }
 
       // Partition atom indices into a petite list of non-negligible centers
       std::iota( point_dist_idx.begin(), point_dist_idx.end(), 0 );
       auto atom_keep_end = std::partition( point_dist_idx.begin(), point_dist_idx.end(),
-        [&]( auto i ){ return atomDist[i] < std::numeric_limits<double>::infinity(); } );
+        [&]( auto i ){ return atomDist[i] < traits::infinity(); } );
 
       // Only sort over non-negligible centers
       std::sort( point_dist_idx.begin(), atom_keep_end,
@@ -234,35 +269,35 @@ void reference_lko_partition_weights( MolecularGrid& mg ) {
 
       // Sort atom distances for contiguous reads in the weight loop
       auto atom_dist_end = std::partition( atomDist.begin(), atomDist.end(),
-        []( auto x ){ return x < std::numeric_limits<double>::infinity(); } );
+        [&]( auto x ){ return x < traits::infinity(); } );
       std::sort( atomDist.begin(), atom_dist_end );
 
       // Evaluate unnormalized partition functions
-      std::fill_n( partitionScratch.begin(), natoms_keep, 0. );
+      std::fill_n( partitionScratch.begin(), natoms_keep, traits::from_integer(0) );
       for( size_t i = 0; i < natoms_keep; ++i ) {
         auto   idx_i = point_dist_idx[i];
         auto   r_i   = atomDist[i];
-        if( r_i > (r_nearest + lko_r_cutoff) ) break;
-        partitionScratch[i] = 1.;
+        if( r_i > (r_nearest + r_cutoff) ) break;
+        partitionScratch[i] = c1;
 
-        const double* RAB_i = RAB.data() + idx_i*natoms;
+        const T* RAB_i = RAB.data() + idx_i*natoms;
 
         for( size_t j = 0; j < i; ++j ) {
           auto r_j = atomDist[j];
-          if( r_j > (r_i + lko_r_cutoff) ) break;
+          if( r_j > (r_i + r_cutoff) ) break;
 
           auto idx_j = point_dist_idx[j];
-          const double mu = (r_i - r_j) / std::min( RAB_i[idx_j], lko_r_cutoff );
+          const T mu = (r_i - r_j) / std::min( RAB_i[idx_j], r_cutoff );
 
-          const double g     = gBecke(mu);
-          const double s_ij  = 0.5 * (1. - g);
+          const T g     = gBecke(mu);
+          const T s_ij  = c0_5 * (c1 - g);
           partitionScratch[i] *= s_ij;
-          partitionScratch[j] *= 1. - s_ij;
+          partitionScratch[j] *= c1 - s_ij;
         }
       }
 
       // Normalization
-      double sum = 0.;
+      T sum = traits::from_integer(0);
       for( size_t iA = 0; iA < natoms_keep; ++iA ) sum += partitionScratch[iA];
 
       // Update weight

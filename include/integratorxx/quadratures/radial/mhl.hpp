@@ -17,24 +17,25 @@ namespace IntegratorXX {
  *  @tparam M Integer to modulate the MHL transformation. 
  *            Typically taken to be 2.
  */
-template <size_t M>
-class MurrayHandyLamingRadialTraits : public RadialTraits {
+template <typename T, size_t M>
+class MurrayHandyLamingRadialTraits : public RadialTraits<T> {
 
   size_t npts_; ///< Number of grid points
-  double R_; ///< Radial scaling factor
-  
+  T R_; ///< Radial scaling factor
+
 
 public:
 
-  MurrayHandyLamingRadialTraits(size_t npts, double R = 1.0) : npts_(npts), R_(R) {}
+  MurrayHandyLamingRadialTraits(size_t npts, T R = fp_traits<T>::from_real(IXX_REAL(1.0))) :
+    npts_(npts), R_(R) {}
 
   size_t npts() const noexcept { return npts_; }
 
-  std::unique_ptr<RadialTraits> clone() const {
+  std::unique_ptr<RadialTraits<T>> clone() const {
     return std::make_unique<MurrayHandyLamingRadialTraits>(*this);
   }
 
-  bool compare(const RadialTraits& other) const noexcept {
+  bool compare(const RadialTraits<T>& other) const noexcept {
     auto ptr = dynamic_cast<const MurrayHandyLamingRadialTraits*>(&other);
     return ptr ? *this == *ptr : false;
   }
@@ -92,7 +93,7 @@ public:
 template <typename PointType, typename WeightType>
 using MurrayHandyLaming = RadialTransformQuadrature<
   UniformTrapezoid<PointType,WeightType>,
-  MurrayHandyLamingRadialTraits<2>
+  MurrayHandyLamingRadialTraits<PointType,2>
 >;
 
 namespace detail {
