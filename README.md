@@ -111,7 +111,28 @@ the following radial pruning schemes:
 | Robust    | The Psi4 "robust" pruning scheme     | `PruningScheme::Robust`   |
 | Treutler  | The Treutler-Ahlrichs pruning scheme | `PruntinScheme::Treutler` |
 
+### Molecular Grids
 
+`include/integratorxx/molecular_grid/` assembles a multi-atom integration
+grid from per-atom atomic grids (as produced by `SphericalGridFactory`) and
+atomic positions, via `IntegratorXX::MolecularGrid`. Cheap, non-materializing
+metadata (point counts, batch counts, bounding boxes) is available
+immediately after construction; the actual point/weight data is only copied
+for batches a caller explicitly asks for, either by atom subset
+(`batches_for_atoms`) or by a global point-index range
+(`batches_for_point_range`), or for the whole molecule at once via the
+lazily-cached `points()`/`weights()`.
+
+`include/integratorxx/molecular_grid/defaults.hpp` supplies element-indexed
+defaults (`MolecularGridDefaults`, `make_atom_instances`) -- per-element
+radius/scaling-factor tables and Fine/UltraFine/SuperFine/GM3/GM5 size
+presets -- for callers that don't want to hand-pick radial/angular sizes per
+element.
+
+`include/integratorxx/molecular_grid/partition_weights.hpp` provides a
+serial-CPU reference implementation of Becke, Stratmann-Scuseria-Frisch
+(SSF), and Laqua-Kussmann-Ochsenfeld (LKO) fuzzy-cell partition weighting via
+`MolecularGrid::apply_partition_weights`.
 
 ## Example Usage
 

@@ -1,0 +1,463 @@
+#pragma once
+
+// Adapted from GauXC's MolGridFactory (include/gauxc/molgrid/defaults.hpp,
+// src/molgrid_defaults.cxx, src/atomic_radii.cxx), GauXC Copyright (c)
+// 2020-2024, The Regents of the University of California, through Lawrence
+// Berkeley National Laboratory (subject to receipt of any required approvals
+// from the U.S. Dept. of Energy). All rights reserved. See GauXC's
+// LICENSE.txt for details.
+
+#include <integratorxx/molecular_grid/defaults.hpp>
+
+#include <stdexcept>
+
+namespace IntegratorXX {
+
+namespace {
+
+constexpr long double pm_to_bohr( long double x ) {
+  return x * 0.0188973000000929L / 1.00000205057L;
+}
+
+}
+
+/// Slater, J.C. J. Chem. Phys. 41, 3199, 1964. https://doi.org/10.1063/1.1725697
+double slater_radius_64( AtomicId Z ) {
+  switch(Z) {
+    case 1:  /* H  */ return pm_to_bohr(25. );
+  //case 2:  /* He */ return pm_to_bohr(120.);
+    case 3:  /* Li */ return pm_to_bohr(145.);
+    case 4:  /* Be */ return pm_to_bohr(105.);
+    case 5:  /* B  */ return pm_to_bohr(85. );
+    case 6:  /* C  */ return pm_to_bohr(70. );
+    case 7:  /* N  */ return pm_to_bohr(65. );
+    case 8:  /* O  */ return pm_to_bohr(60. );
+    case 9:  /* F  */ return pm_to_bohr(50. );
+  //case 10: /* Ne */ return pm_to_bohr(160.);
+    case 11: /* Na */ return pm_to_bohr(180.);
+    case 12: /* Mg */ return pm_to_bohr(150.);
+    case 13: /* Al */ return pm_to_bohr(125.);
+    case 14: /* Si */ return pm_to_bohr(110.);
+    case 15: /* P  */ return pm_to_bohr(100.);
+    case 16: /* S  */ return pm_to_bohr(100.);
+    case 17: /* Cl */ return pm_to_bohr(100.);
+  //case 18: /* Ar */ return pm_to_bohr(71. );
+    case 19: /* K  */ return pm_to_bohr(220.);
+    case 20: /* Ca */ return pm_to_bohr(180.);
+    case 21: /* Sc */ return pm_to_bohr(160.);
+    case 22: /* Ti */ return pm_to_bohr(140.);
+    case 23: /* V  */ return pm_to_bohr(135.);
+    case 24: /* Cr */ return pm_to_bohr(140.);
+    case 25: /* Mn */ return pm_to_bohr(140.);
+    case 26: /* Fe */ return pm_to_bohr(140.);
+    case 27: /* Co */ return pm_to_bohr(135.);
+    case 28: /* Ni */ return pm_to_bohr(135.);
+    case 29: /* Cu */ return pm_to_bohr(135.);
+    case 30: /* Zn */ return pm_to_bohr(135.);
+    case 31: /* Ga */ return pm_to_bohr(130.);
+    case 32: /* Ge */ return pm_to_bohr(125.);
+    case 33: /* As */ return pm_to_bohr(115.);
+    case 34: /* Se */ return pm_to_bohr(115.);
+    case 35: /* Br */ return pm_to_bohr(115.);
+
+    case 37: /* Rb */ return pm_to_bohr(235.);
+    case 38: /* Sr */ return pm_to_bohr(200.);
+    case 39: /* Y  */ return pm_to_bohr(180.);
+    case 40: /* Zr */ return pm_to_bohr(155.);
+    case 41: /* Nb */ return pm_to_bohr(145.);
+    case 42: /* Mo */ return pm_to_bohr(145.);
+    case 43: /* Tc */ return pm_to_bohr(135.);
+    case 44: /* Ru */ return pm_to_bohr(130.);
+    case 45: /* Rh */ return pm_to_bohr(135.);
+    case 46: /* Pd */ return pm_to_bohr(140.);
+    case 47: /* Ag */ return pm_to_bohr(160.);
+    case 48: /* Cd */ return pm_to_bohr(155.);
+    case 49: /* In */ return pm_to_bohr(155.);
+    case 50: /* Sn */ return pm_to_bohr(145.);
+    case 51: /* Sb */ return pm_to_bohr(145.);
+    case 52: /* Te */ return pm_to_bohr(140.);
+    case 53: /* I  */ return pm_to_bohr(140.);
+
+    case 55: /* Cs */ return pm_to_bohr(265.);
+    case 56: /* Ba */ return pm_to_bohr(215.);
+    case 57: /* La */ return pm_to_bohr(195.);
+    case 58: /* Ce */ return pm_to_bohr(185.);
+    case 59: /* Pr */ return pm_to_bohr(185.);
+    case 60: /* Nd */ return pm_to_bohr(185.);
+    case 61: /* Pm */ return pm_to_bohr(185.);
+    case 62: /* Sm */ return pm_to_bohr(185.);
+    case 63: /* Eu */ return pm_to_bohr(185.);
+    case 64: /* Gd */ return pm_to_bohr(180.);
+    case 65: /* Tb */ return pm_to_bohr(175.);
+    case 66: /* Dy */ return pm_to_bohr(175.);
+    case 67: /* Ho */ return pm_to_bohr(175.);
+    case 68: /* Er */ return pm_to_bohr(175.);
+    case 69: /* Tm */ return pm_to_bohr(175.);
+    case 70: /* Yb */ return pm_to_bohr(175.);
+    case 71: /* Lu */ return pm_to_bohr(175.);
+    case 72: /* Hf */ return pm_to_bohr(155.);
+    case 73: /* Ta */ return pm_to_bohr(145.);
+    case 74: /* W  */ return pm_to_bohr(135.);
+    case 75: /* Re */ return pm_to_bohr(135.);
+    case 76: /* Os */ return pm_to_bohr(130.);
+    case 77: /* Ir */ return pm_to_bohr(135.);
+    case 78: /* Pt */ return pm_to_bohr(135.);
+    case 79: /* Au */ return pm_to_bohr(135.);
+    case 80: /* Hg */ return pm_to_bohr(150.);
+    case 81: /* Tl */ return pm_to_bohr(190.);
+    case 82: /* Pb */ return pm_to_bohr(180.);
+    case 83: /* Bi */ return pm_to_bohr(160.);
+    case 84: /* Po */ return pm_to_bohr(190.);
+
+    case 88: /* Ra */ return pm_to_bohr(215.);
+    case 89: /* Ac */ return pm_to_bohr(195.);
+    case 90: /* Th */ return pm_to_bohr(180.);
+    case 91: /* Pa */ return pm_to_bohr(180.);
+    case 92: /* U  */ return pm_to_bohr(175.);
+    case 93: /* Np */ return pm_to_bohr(175.);
+    case 94: /* Pu */ return pm_to_bohr(175.);
+    case 95: /* Am */ return pm_to_bohr(175.);
+  //case 96: /* Cm */ return pm_to_bohr(176.);
+
+    default: return -1.;
+  }
+}
+
+/// Slater, J.C. Phys. Rev. 36, 57, 1930. https://doi.org/10.1103/PhysRev.36.57
+double slater_radius_30( AtomicId Z ) {
+  switch(Z) {
+    case 1:   /* H  */ return pm_to_bohr(53. );
+
+    case 3:   /* Li */ return pm_to_bohr(163.);
+    case 4:   /* Be */ return pm_to_bohr(109.);
+    case 5:   /* B  */ return pm_to_bohr(82. );
+    case 6:   /* C  */ return pm_to_bohr(65. );
+    case 7:   /* N  */ return pm_to_bohr(55. );
+    case 8:   /* O  */ return pm_to_bohr(47. );
+    case 9:   /* F  */ return pm_to_bohr(41. );
+
+    case 11:  /* Na */ return pm_to_bohr(217.);
+    case 12:  /* Mg */ return pm_to_bohr(168.);
+    case 13:  /* Al */ return pm_to_bohr(137.);
+    case 14:  /* Si */ return pm_to_bohr(115.);
+    case 15:  /* P  */ return pm_to_bohr(100.);
+    case 16:  /* S  */ return pm_to_bohr(88. );
+    case 17:  /* Cl */ return pm_to_bohr(78. );
+
+    case 19:  /* K  */ return pm_to_bohr(332.);
+    case 20:  /* Ca */ return pm_to_bohr(256.);
+    case 21:  /* Sc */ return pm_to_bohr(243.);
+    case 22:  /* Ti */ return pm_to_bohr(232.);
+    case 23:  /* V  */ return pm_to_bohr(222.);
+    case 24:  /* Cr */ return pm_to_bohr(212.);
+    case 25:  /* Mn */ return pm_to_bohr(202.);
+    case 26:  /* Fe */ return pm_to_bohr(195.);
+    case 27:  /* Co */ return pm_to_bohr(187.);
+    case 28:  /* Ni */ return pm_to_bohr(180.);
+    case 29:  /* Cu */ return pm_to_bohr(173.);
+    case 30:  /* Zn */ return pm_to_bohr(167.);
+    case 31:  /* Ga */ return pm_to_bohr(146.);
+    case 32:  /* Ge */ return pm_to_bohr(129.);
+    case 33:  /* As */ return pm_to_bohr(116.);
+    case 34:  /* Se */ return pm_to_bohr(105.);
+    case 35:  /* Br */ return pm_to_bohr(96. );
+
+    case 37:  /* Rb */ return pm_to_bohr(386.);
+    case 38:  /* Sr */ return pm_to_bohr(300.);
+    case 39:  /* Y  */ return pm_to_bohr(284.);
+    case 40:  /* Zr */ return pm_to_bohr(271.);
+    case 41:  /* Nb */ return pm_to_bohr(260.);
+    case 42:  /* Mo */ return pm_to_bohr(248.);
+    case 43:  /* Tc */ return pm_to_bohr(236.);
+    case 44:  /* Ru */ return pm_to_bohr(228.);
+    case 45:  /* Rh */ return pm_to_bohr(218.);
+    case 46:  /* Pd */ return pm_to_bohr(210.);
+    case 47:  /* Ag */ return pm_to_bohr(202.);
+    case 48:  /* Cd */ return pm_to_bohr(195.);
+    case 49:  /* In */ return pm_to_bohr(171.);
+    case 50:  /* Sn */ return pm_to_bohr(151.);
+    case 51:  /* Sb */ return pm_to_bohr(135.);
+    case 52:  /* Te */ return pm_to_bohr(122.);
+    case 53:  /* I  */ return pm_to_bohr(112.);
+
+    case 55:  /* Cs */ return pm_to_bohr(425.);
+    case 56:  /* Ba */ return pm_to_bohr(330.);
+    case 57:  /* La */ return pm_to_bohr(312.);
+
+    case 73:  /* Ta */ return pm_to_bohr(286.);
+    case 74:  /* W  */ return pm_to_bohr(273.);
+    case 75:  /* Re */ return pm_to_bohr(260.);
+    case 76:  /* Os */ return pm_to_bohr(251.);
+    case 77:  /* Ir */ return pm_to_bohr(240.);
+    case 78:  /* Pt */ return pm_to_bohr(231.);
+    case 79:  /* Au */ return pm_to_bohr(222.);
+    case 80:  /* Hg */ return pm_to_bohr(215.);
+    case 81:  /* Tl */ return pm_to_bohr(188.);
+    case 82:  /* Pb */ return pm_to_bohr(166.);
+    case 83:  /* Bi */ return pm_to_bohr(148.);
+
+    default: return -1.;
+  }
+}
+
+/// Clementi, E., Raimondi, D.L., Reinhardt, W.P. J. Chem. Phys. 47, 1300, 1967.
+/// https://doi.org/10.1063/1.1712084
+double clementi_radius_67( AtomicId Z ) {
+  switch(Z) {
+    case 2:   /* He */ return pm_to_bohr(31. );
+
+    case 3:   /* Li */ return pm_to_bohr(167.);
+    case 4:   /* Be */ return pm_to_bohr(112.);
+    case 5:   /* B  */ return pm_to_bohr(87. );
+    case 6:   /* C  */ return pm_to_bohr(67. );
+    case 7:   /* N  */ return pm_to_bohr(56. );
+    case 8:   /* O  */ return pm_to_bohr(48. );
+    case 9:   /* F  */ return pm_to_bohr(42. );
+    case 10:  /* Ne */ return pm_to_bohr(38. );
+
+    case 11:  /* Na */ return pm_to_bohr(190.);
+    case 12:  /* Mg */ return pm_to_bohr(145.);
+    case 13:  /* Al */ return pm_to_bohr(118.);
+    case 14:  /* Si */ return pm_to_bohr(111.);
+    case 15:  /* P  */ return pm_to_bohr(98. );
+    case 16:  /* S  */ return pm_to_bohr(88. );
+    case 17:  /* Cl */ return pm_to_bohr(79. );
+    case 18:  /* Ar */ return pm_to_bohr(71. );
+
+    case 19:  /* K  */ return pm_to_bohr(243.);
+    case 20:  /* Ca */ return pm_to_bohr(194.);
+    case 21:  /* Sc */ return pm_to_bohr(184.);
+    case 22:  /* Ti */ return pm_to_bohr(176.);
+    case 23:  /* V  */ return pm_to_bohr(171.);
+    case 24:  /* Cr */ return pm_to_bohr(166.);
+    case 25:  /* Mn */ return pm_to_bohr(161.);
+    case 26:  /* Fe */ return pm_to_bohr(156.);
+    case 27:  /* Co */ return pm_to_bohr(152.);
+    case 28:  /* Ni */ return pm_to_bohr(149.);
+    case 29:  /* Cu */ return pm_to_bohr(145.);
+    case 30:  /* Zn */ return pm_to_bohr(142.);
+    case 31:  /* Ga */ return pm_to_bohr(136.);
+    case 32:  /* Ge */ return pm_to_bohr(125.);
+    case 33:  /* As */ return pm_to_bohr(114.);
+    case 34:  /* Se */ return pm_to_bohr(103.);
+    case 35:  /* Br */ return pm_to_bohr(94. );
+    case 36:  /* Kr */ return pm_to_bohr(88. );
+
+    case 37:  /* Rb */ return pm_to_bohr(265.);
+    case 38:  /* Sr */ return pm_to_bohr(219.);
+    case 39:  /* Y  */ return pm_to_bohr(212.);
+    case 40:  /* Zr */ return pm_to_bohr(206.);
+    case 41:  /* Nb */ return pm_to_bohr(198.);
+    case 42:  /* Mo */ return pm_to_bohr(190.);
+    case 43:  /* Tc */ return pm_to_bohr(183.);
+    case 44:  /* Ru */ return pm_to_bohr(178.);
+    case 45:  /* Rh */ return pm_to_bohr(173.);
+    case 46:  /* Pd */ return pm_to_bohr(169.);
+    case 47:  /* Ag */ return pm_to_bohr(165.);
+    case 48:  /* Cd */ return pm_to_bohr(161.);
+    case 49:  /* In */ return pm_to_bohr(156.);
+    case 50:  /* Sn */ return pm_to_bohr(145.);
+    case 51:  /* Sb */ return pm_to_bohr(133.);
+    case 52:  /* Te */ return pm_to_bohr(123.);
+    case 53:  /* I  */ return pm_to_bohr(115.);
+    case 54:  /* Xe */ return pm_to_bohr(108.);
+
+    case 55:  /* Cs */ return pm_to_bohr(298.);
+    case 56:  /* Ba */ return pm_to_bohr(253.);
+    case 57:  /* La */ return pm_to_bohr(622.);
+    case 58:  /* Ce */ return pm_to_bohr(505.);
+    case 59:  /* Pr */ return pm_to_bohr(247.);
+    case 60:  /* Nd */ return pm_to_bohr(206.);
+    case 61:  /* Pm */ return pm_to_bohr(205.);
+    case 62:  /* Sm */ return pm_to_bohr(238.);
+    case 63:  /* Eu */ return pm_to_bohr(231.);
+    case 64:  /* Gd */ return pm_to_bohr(233.);
+    case 65:  /* Tb */ return pm_to_bohr(225.);
+    case 66:  /* Dy */ return pm_to_bohr(228.);
+    case 67:  /* Ho */ return pm_to_bohr(226.);
+    case 68:  /* Er */ return pm_to_bohr(226.);
+    case 69:  /* Tm */ return pm_to_bohr(222.);
+    case 70:  /* Yb */ return pm_to_bohr(222.);
+    case 71:  /* Lu */ return pm_to_bohr(217.);
+    case 72:  /* Hf */ return pm_to_bohr(208.);
+    case 73:  /* Ta */ return pm_to_bohr(200.);
+    case 74:  /* W  */ return pm_to_bohr(193.);
+    case 75:  /* Re */ return pm_to_bohr(188.);
+    case 76:  /* Os */ return pm_to_bohr(185.);
+    case 77:  /* Ir */ return pm_to_bohr(180.);
+    case 78:  /* Pt */ return pm_to_bohr(177.);
+    case 79:  /* Au */ return pm_to_bohr(174.);
+    case 80:  /* Hg */ return pm_to_bohr(171.);
+    case 81:  /* Tl */ return pm_to_bohr(156.);
+    case 82:  /* Pb */ return pm_to_bohr(154.);
+    case 83:  /* Bi */ return pm_to_bohr(143.);
+    case 84:  /* Po */ return pm_to_bohr(135.);
+    case 85:  /* At */ return pm_to_bohr(127.);
+    case 86:  /* Rn */ return pm_to_bohr(120.);
+
+    default: return -1.;
+  }
+}
+
+double default_atomic_radius( AtomicId Z ) {
+  // If the radius is in Slater-64, use it as the default
+  auto slater_64 = slater_radius_64(Z);
+  if( slater_64 > 0. ) return slater_64;
+
+  // Fill in gaps with Clementi-67 data
+  auto clementi_67 = clementi_radius_67(Z);
+  if( clementi_67 > 0. ) return clementi_67;
+
+  // Default to 2.01 Angstroms -> 3.79835 Bohr
+  return 3.79835;
+}
+
+double default_mk_radial_scaling_factor( AtomicId Z ) {
+  switch(Z) {
+    case 3:
+    case 4:
+    case 11:
+    case 12:
+    case 19:
+    case 20:
+    case 37:
+    case 38:
+    case 55:
+    case 56:
+    case 87:
+    case 88:
+      return 7.0;
+    default:
+      return 5.0;
+  }
+}
+
+double default_ta_radial_scaling_factor( AtomicId Z ) {
+  switch(Z) {
+    case 1: return  0.8; // H
+    case 2: return  0.9; // He
+    case 3: return  1.8; // Li
+    case 4: return  1.4; // Be
+    case 5: return  1.3; // B
+    case 6: return  1.1; // C
+    case 7: return  0.9; // N
+    case 8: return  0.9; // O
+    case 9: return  0.9; // F
+    case 10: return 0.9; // Ne
+    case 11: return 1.4; // Na
+    case 12: return 1.3; // Mg
+    case 13: return 1.3; // Al
+    case 14: return 1.2; // Si
+    case 15: return 1.1; // P
+    case 16: return 1.0; // S
+    case 17: return 1.0; // Cl
+    case 18: return 1.0; // Ar
+    case 19: return 1.5; // K
+    case 20: return 1.4; // Ca
+    case 21: return 1.3; // Sc
+    case 22: return 1.2; // Ti
+    case 23: return 1.2; // V
+    case 24: return 1.2; // Cr
+    case 25: return 1.2; // Mn
+    case 26: return 1.2; // Fe
+    case 27: return 1.2; // Co
+    case 28: return 1.1; // Ni
+    case 29: return 1.1; // Cu
+    case 30: return 1.1; // Zn
+    case 31: return 1.1; // Ga
+    case 32: return 1.0; // Ge
+    case 33: return 0.9; // As
+    case 34: return 0.9; // Se
+    case 35: return 0.9; // Br
+    case 36: return 0.9; // Kr
+    default:
+      throw std::runtime_error("Z > 36 Not Supported for Treutler-Ahlrichs Quadrature");
+  }
+}
+
+double default_mhl_radial_scaling_factor( AtomicId Z ) {
+  const double fac = (Z != 1) ? 0.5 : 1.0;
+  return default_atomic_radius(Z) * fac;
+}
+
+double default_radial_scaling_factor( RadialQuad rq, AtomicId Z ) {
+  if( rq == RadialQuad::MuraKnowles )
+    return default_mk_radial_scaling_factor(Z);
+  else if( rq == RadialQuad::TreutlerAhlrichs )
+    return default_ta_radial_scaling_factor(Z);
+  else // MHL / Becke
+    return default_mhl_radial_scaling_factor(Z);
+}
+
+std::tuple<size_t,size_t> default_grid_size( AtomicId Z, RadialQuad /*rq*/, AtomicGridSizeDefault s ) {
+  switch(s) {
+    case AtomicGridSizeDefault::GM3:
+      return std::make_tuple( size_t(35), size_t(110) );
+
+    case AtomicGridSizeDefault::GM5:
+      return std::make_tuple( size_t(50), size_t(302) );
+
+    case AtomicGridSizeDefault::FineGrid:
+      return std::make_tuple( size_t(75), size_t(302) );
+
+    case AtomicGridSizeDefault::UltraFineGrid:
+      return std::make_tuple( size_t(99), size_t(590) );
+
+    case AtomicGridSizeDefault::SuperFineGrid:
+      if( Z <= 2 ) return std::make_tuple( size_t(175), size_t(974) );
+      else         return std::make_tuple( size_t(250), size_t(974) );
+
+    default:
+      throw std::runtime_error("Not A Recognized Standard Grid");
+  }
+}
+
+UnprunedSphericalGridSpecification MolecularGridDefaults::create_default_unpruned_grid_spec(
+  AtomicId Z, RadialQuad rq, size_t radial_size, size_t angular_size
+) {
+  auto radial_traits = make_radial_traits( rq, radial_size, default_radial_scaling_factor(rq,Z) );
+  // GauXC only ever pairs its default radial schemes with Lebedev-Laikov
+  // angular grids; matched here for behavioral parity.
+  return UnprunedSphericalGridSpecification(
+    rq, *radial_traits, AngularQuad::LebedevLaikov, angular_size
+  );
+}
+
+UnprunedSphericalGridSpecification MolecularGridDefaults::create_default_unpruned_grid_spec(
+  AtomicId Z, RadialQuad rq, AtomicGridSizeDefault standard_grid
+) {
+  auto [rsz, asz] = default_grid_size(Z, rq, standard_grid);
+  return create_default_unpruned_grid_spec(Z, rq, rsz, asz);
+}
+
+std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr>
+  MolecularGridDefaults::generate_gridmap(
+    const std::unordered_map<AtomicId, PrunedSphericalGridSpecification>& gs_map
+  ) {
+
+  std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr> molmap;
+  for( const auto& [key, val] : gs_map )
+    molmap.emplace( key, SphericalGridFactory::generate_grid(val) );
+  return molmap;
+}
+
+std::vector<AtomInstance> make_atom_instances(
+  const std::vector<AtomicId>&               atomic_ids,
+  const std::vector<cartesian_pt_t<double>>& positions,
+  const std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr>& element_grids
+) {
+  if( atomic_ids.size() != positions.size() )
+    throw std::invalid_argument("make_atom_instances: atomic_ids/positions size mismatch");
+
+  std::vector<AtomInstance> atoms;
+  atoms.reserve( atomic_ids.size() );
+  for( size_t i = 0; i < atomic_ids.size(); ++i ) {
+    auto it = element_grids.find( atomic_ids[i] );
+    if( it == element_grids.end() )
+      throw std::out_of_range("make_atom_instances: no grid template for the requested atomic id");
+    atoms.push_back( AtomInstance{ positions[i], it->second } );
+  }
+  return atoms;
+}
+
+}
