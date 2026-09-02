@@ -12,7 +12,7 @@
 
 namespace IntegratorXX {
 
-class MolecularGrid;
+template <typename T> class MolecularGrid;
 
 /// Fuzzy-cell molecular partition-weighting scheme.
 enum class PartitionScheme {
@@ -32,19 +32,22 @@ constexpr double lko_r_cutoff = 5.0;
 ///        materialized point weights, in place.
 /// @param mg The MolecularGrid to reweight; must already have its flat
 ///           point/weight arrays materialized by the caller.
-void reference_becke_partition_weights( MolecularGrid& mg );
+template <typename T>
+void reference_becke_partition_weights( MolecularGrid<T>& mg );
 
 /// @brief Apply Stratmann-Scuseria-Frisch (SSF) partition weights to `mg`'s
 ///        materialized point weights, in place. CPU reference only -- does
 ///        not use or replace GauXC's own device-accelerated SSF kernels.
 /// @param mg The MolecularGrid to reweight; must already have its flat
 ///           point/weight arrays materialized by the caller.
-void reference_ssf_partition_weights( MolecularGrid& mg );
+template <typename T>
+void reference_ssf_partition_weights( MolecularGrid<T>& mg );
 
 /// @brief Apply Laqua-Kussmann-Ochsenfeld (LKO) near-field-pruned partition
 ///        weights to `mg`'s materialized point weights, in place.
 /// @param mg The MolecularGrid to reweight; must already have its flat
 ///           point/weight arrays materialized by the caller.
-void reference_lko_partition_weights( MolecularGrid& mg );
+template <typename T>
+void reference_lko_partition_weights( MolecularGrid<T>& mg );
 
 }

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <integratorxx/config.hpp>
+#include <limits>
 #include <type_traits>
 
 #ifdef ENABLE_STRING_REALS
@@ -128,6 +129,16 @@ struct fp_traits {
   static T divide_integer(ixx_int num, ixx_int den) {
     return from_integer(num) / from_integer(den);
   }
+
+  /** @brief An "unbounded"/"no neighbor found" sentinel value for @p T.
+   *
+   *  Used where a `double`-based implementation would reach for
+   *  `std::numeric_limits<double>::infinity()`, without requiring a custom
+   *  UQ-style type to specialize `std::numeric_limits` itself.
+   *
+   *  @return An infinite (or otherwise maximally unbounded) value of @p T.
+   */
+  static T infinity() { return std::numeric_limits<T>::infinity(); }
 };
 
 }  // namespace IntegratorXX

@@ -8,24 +8,40 @@
 
 using namespace IntegratorXX;
 
-using mk_type  = MuraKnowles<double,double>;
-using ll_type  = LebedevLaikov<double>;
-using sph_type = SphericalQuadrature<mk_type, ll_type>;
-
 namespace {
 
-sph_type make_test_atomic_grid( size_t nrad = 10, size_t nang = 26 ) {
-  mk_type rq(nrad, 2.0);
-  ll_type aq(nang);
-  return sph_type(rq, aq);
+/// Comparison tolerances scaled for the type under test: `float`'s ~7
+/// significant decimal digits can't meet the tolerances that are
+/// appropriate for `double`, so both a "tight" (per-point/per-weight) and
+/// "loose" (accumulated-sum) tolerance are widened for `float`.
+template <typename T>
+constexpr T tight_tol() { return std::is_same_v<T,float> ? T(1e-4) : T(1e-13); }
+template <typename T>
+constexpr T loose_tol() { return std::is_same_v<T,float> ? T(1e-4) : T(1e-10); }
+
+template <typename T>
+using mk_type_t  = MuraKnowles<T,T>;
+template <typename T>
+using ll_type_t  = LebedevLaikov<T>;
+template <typename T>
+using sph_type_t = SphericalQuadrature<mk_type_t<T>, ll_type_t<T>>;
+
+template <typename T>
+sph_type_t<T> make_test_atomic_grid( size_t nrad = 10, size_t nang = 26 ) {
+  mk_type_t<T> rq(nrad, T(2.0));
+  ll_type_t<T> aq(nang);
+  return sph_type_t<T>(rq, aq);
 }
 
-SphericalGridFactory::spherical_grid_ptr make_test_grid_ptr( size_t nrad = 10, size_t nang = 26 ) {
-  return std::make_shared<sph_type>( make_test_atomic_grid(nrad, nang) );
+template <typename T>
+typename SphericalGridFactory<T>::spherical_grid_ptr
+  make_test_grid_ptr( size_t nrad = 10, size_t nang = 26 ) {
+  return std::make_shared<sph_type_t<T>>( make_test_atomic_grid<T>(nrad, nang) );
 }
 
-void require_points_equal( const cartesian_pt_t<double>& a, const cartesian_pt_t<double>& b,
-  double tol = 1e-13 ) {
+template <typename T>
+void require_points_equal( const cartesian_pt_t<T>& a, const cartesian_pt_t<T>& b,
+  T tol = tight_tol<T>() ) {
   REQUIRE_THAT( a[0], Catch::Matchers::WithinAbs(b[0], tol) );
   REQUIRE_THAT( a[1], Catch::Matchers::WithinAbs(b[1], tol) );
   REQUIRE_THAT( a[2], Catch::Matchers::WithinAbs(b[2], tol) );
@@ -33,13 +49,14 @@ void require_points_equal( const cartesian_pt_t<double>& a, const cartesian_pt_t
 
 /// Test-only decorator: counts clone() calls so construction's "clone each
 /// atom's template exactly once" contract is directly verifiable.
-struct CountingSphericalQuadrature : public sph_type {
-  using base_type = sph_type;
+template <typename T>
+struct CountingSphericalQuadrature : public sph_type_t<T> {
+  using base_type = sph_type_t<T>;
   int* counter = nullptr;
 
-  explicit CountingSphericalQuadrature( const sph_type& q ) : base_type(q) {}
+  explicit CountingSphericalQuadrature( const sph_type_t<T>& q ) : base_type(q) {}
 
-  std::shared_ptr<SphericalQuadratureBase<point_container,weight_container>>
+  std::shared_ptr<SphericalQuadratureBase<typename base_type::point_container,typename base_type::weight_container>>
     clone() const override {
     if( counter ) ++(*counter);
     return std::make_shared<CountingSphericalQuadrature>(*this);
@@ -48,21 +65,22 @@ struct CountingSphericalQuadrature : public sph_type {
 
 }
 
-TEST_CASE( "MolecularGrid Construction", "[molecular-grid]" ) {
+TEMPLATE_TEST_CASE( "MolecularGrid Construction", "[molecular-grid]", double, float ) {
+  using T = TestType;
 
-  auto grid_ptr = make_test_grid_ptr();
+  auto grid_ptr = make_test_grid_ptr<T>();
   const size_t atomic_npts = grid_ptr->npts();
 
   SECTION("Two atoms, shared template") {
-    std::vector<AtomInstance> atoms = {
-      AtomInstance{ {0., 0., 0.}, grid_ptr },
-      AtomInstance{ {5., 0., 0.}, grid_ptr }
+    std::vector<AtomInstance<T>> atoms = {
+      AtomInstance<T>{ {T(0.), T(0.), T(0.)}, grid_ptr },
+      AtomInstance<T>{ {T(5.), T(0.), T(0.)}, grid_ptr }
     };
 
     const auto orig_points = grid_ptr->points();
     const auto orig_center = grid_ptr->center();
 
-    MolecularGrid mg( atoms, 50 );
+    MolecularGrid<T> mg( atoms, 50 );
 
     REQUIRE( mg.natoms() == 2 );
     REQUIRE( mg.npts() == 2*atomic_npts );
@@ -74,25 +92,25 @@ TEST_CASE( "MolecularGrid Construction", "[molecular-grid]" ) {
     REQUIRE( mg.atom_point_end(1)   == 2*atomic_npts );
 
     // The shared template must be unmutated by construction.
-    require_points_equal( grid_ptr->center(), orig_center );
+    require_points_equal<T>( grid_ptr->center(), orig_center );
     REQUIRE( grid_ptr->points().size() == orig_points.size() );
     for( size_t i = 0; i < orig_points.size(); ++i )
-      require_points_equal( grid_ptr->points()[i], orig_points[i] );
+      require_points_equal<T>( grid_ptr->points()[i], orig_points[i] );
   }
 
   SECTION("Clone economy: exactly one clone() per atom, only at construction") {
     int clone_count = 0;
-    CountingSphericalQuadrature template_quad( make_test_atomic_grid() );
+    CountingSphericalQuadrature<T> template_quad( make_test_atomic_grid<T>() );
     template_quad.counter = &clone_count;
-    auto template_ptr = std::make_shared<CountingSphericalQuadrature>(template_quad);
+    auto template_ptr = std::make_shared<CountingSphericalQuadrature<T>>(template_quad);
 
-    std::vector<AtomInstance> atoms = {
-      AtomInstance{ {0., 0., 0.}, template_ptr },
-      AtomInstance{ {3., 0., 0.}, template_ptr },
-      AtomInstance{ {6., 0., 0.}, template_ptr },
+    std::vector<AtomInstance<T>> atoms = {
+      AtomInstance<T>{ {T(0.), T(0.), T(0.)}, template_ptr },
+      AtomInstance<T>{ {T(3.), T(0.), T(0.)}, template_ptr },
+      AtomInstance<T>{ {T(6.), T(0.), T(0.)}, template_ptr },
     };
 
-    MolecularGrid mg( atoms, 50 );
+    MolecularGrid<T> mg( atoms, 50 );
     REQUIRE( clone_count == 3 );
 
     // Cheap accessors must not trigger additional clones.
@@ -108,17 +126,18 @@ TEST_CASE( "MolecularGrid Construction", "[molecular-grid]" ) {
   }
 }
 
-TEST_CASE( "MolecularGrid Batch Retrieval Consistency", "[molecular-grid]" ) {
+TEMPLATE_TEST_CASE( "MolecularGrid Batch Retrieval Consistency", "[molecular-grid]", double, float ) {
+  using T = TestType;
 
-  auto grid_ptr = make_test_grid_ptr(12, 26);
+  auto grid_ptr = make_test_grid_ptr<T>(12, 26);
 
-  std::vector<AtomInstance> atoms = {
-    AtomInstance{ {0., 0.,  0.}, grid_ptr },
-    AtomInstance{ {4., 0.,  0.}, grid_ptr },
-    AtomInstance{ {0., 4.,  0.}, grid_ptr },
+  std::vector<AtomInstance<T>> atoms = {
+    AtomInstance<T>{ {T(0.), T(0.),  T(0.)}, grid_ptr },
+    AtomInstance<T>{ {T(4.), T(0.),  T(0.)}, grid_ptr },
+    AtomInstance<T>{ {T(0.), T(4.),  T(0.)}, grid_ptr },
   };
 
-  MolecularGrid mg( atoms, 20 );
+  MolecularGrid<T> mg( atoms, 20 );
   REQUIRE( mg.natoms() == 3 );
   REQUIRE( mg.nbatches() > 0 );
 
@@ -127,7 +146,7 @@ TEST_CASE( "MolecularGrid Batch Retrieval Consistency", "[molecular-grid]" ) {
 
     auto ref_clone = atoms[ia].grid->clone();
     ref_clone->recenter( atoms[ia].center );
-    SphericalMicroBatcher<std::vector<cartesian_pt_t<double>>, std::vector<double>>
+    SphericalMicroBatcher<std::vector<cartesian_pt_t<T>>, std::vector<T>>
       ref_batcher( 20, ref_clone );
 
     auto batches = mg.batches_for_atoms({ia});
@@ -137,8 +156,8 @@ TEST_CASE( "MolecularGrid Batch Retrieval Consistency", "[molecular-grid]" ) {
       auto [box_lo, box_up, ref_pts, ref_wts] = ref_batcher.at(ib);
       REQUIRE( batches[ib].points.size() == ref_pts.size() );
       for( size_t ip = 0; ip < ref_pts.size(); ++ip ) {
-        require_points_equal( batches[ib].points[ip], ref_pts[ip] );
-        REQUIRE_THAT( batches[ib].weights[ip], Catch::Matchers::WithinAbs(ref_wts[ip], 1e-13) );
+        require_points_equal<T>( batches[ib].points[ip], ref_pts[ip] );
+        REQUIRE_THAT( batches[ib].weights[ip], Catch::Matchers::WithinAbs(ref_wts[ip], tight_tol<T>()) );
       }
     }
   }
@@ -147,8 +166,8 @@ TEST_CASE( "MolecularGrid Batch Retrieval Consistency", "[molecular-grid]" ) {
     for( size_t ia = 0; ia < mg.natoms(); ++ia ) {
       auto batches = mg.batches_for_atoms({ia});
 
-      std::vector<cartesian_pt_t<double>> concat_pts;
-      std::vector<double> concat_wts;
+      std::vector<cartesian_pt_t<T>> concat_pts;
+      std::vector<T> concat_wts;
       for( auto& b : batches ) {
         concat_pts.insert(concat_pts.end(), b.points.begin(), b.points.end());
         concat_wts.insert(concat_wts.end(), b.weights.begin(), b.weights.end());
@@ -161,8 +180,8 @@ TEST_CASE( "MolecularGrid Batch Retrieval Consistency", "[molecular-grid]" ) {
       const auto& all_pts = mg.points();
       const auto& all_wts = mg.weights();
       for( size_t i = 0; i < concat_pts.size(); ++i ) {
-        require_points_equal( concat_pts[i], all_pts[pt_begin + i] );
-        REQUIRE_THAT( concat_wts[i], Catch::Matchers::WithinAbs(all_wts[pt_begin + i], 1e-13) );
+        require_points_equal<T>( concat_pts[i], all_pts[pt_begin + i] );
+        REQUIRE_THAT( concat_wts[i], Catch::Matchers::WithinAbs(all_wts[pt_begin + i], tight_tol<T>()) );
       }
     }
   }
@@ -190,45 +209,49 @@ TEST_CASE( "MolecularGrid Batch Retrieval Consistency", "[molecular-grid]" ) {
       for( auto& b : batches ) {
         for( size_t i = 0; i < b.points.size(); ++i ) {
           const size_t gi = b.point_begin + i;
-          require_points_equal( b.points[i], all_pts[gi] );
-          REQUIRE_THAT( b.weights[i], Catch::Matchers::WithinAbs(all_wts[gi], 1e-13) );
+          require_points_equal<T>( b.points[i], all_pts[gi] );
+          REQUIRE_THAT( b.weights[i], Catch::Matchers::WithinAbs(all_wts[gi], tight_tol<T>()) );
         }
       }
     }
   }
 }
 
-TEST_CASE( "MolecularGrid Hetero Round Trip", "[molecular-grid]" ) {
+TEMPLATE_TEST_CASE( "MolecularGrid Hetero Round Trip", "[molecular-grid]", double, float ) {
+  using T = TestType;
 
   // A toy water-like molecule: two atoms share one "H" template, one atom
   // uses a distinct "O" template.
-  auto h_grid = make_test_grid_ptr(8, 26);
-  auto o_grid = make_test_grid_ptr(14, 50);
+  auto h_grid = make_test_grid_ptr<T>(8, 26);
+  auto o_grid = make_test_grid_ptr<T>(14, 50);
 
-  std::vector<AtomInstance> atoms = {
-    AtomInstance{ {0.0,  0.0, 0.0}, o_grid },
-    AtomInstance{ {1.5,  1.0, 0.0}, h_grid },
-    AtomInstance{ {-1.5, 1.0, 0.0}, h_grid },
+  std::vector<AtomInstance<T>> atoms = {
+    AtomInstance<T>{ {T(0.0),  T(0.0), T(0.0)}, o_grid },
+    AtomInstance<T>{ {T(1.5),  T(1.0), T(0.0)}, h_grid },
+    AtomInstance<T>{ {T(-1.5), T(1.0), T(0.0)}, h_grid },
   };
 
-  MolecularGrid mg( atoms, 30 );
+  MolecularGrid<T> mg( atoms, 30 );
 
   REQUIRE( mg.natoms() == 3 );
   REQUIRE( mg.npts() == o_grid->npts() + 2*h_grid->npts() );
 
   // Recentering shifts points, never weights -- total weight is invariant.
-  double ref_weight_sum = 0.;
+  T ref_weight_sum = T(0.);
   for( auto w : o_grid->weights() ) ref_weight_sum += w;
-  for( auto w : h_grid->weights() ) ref_weight_sum += 2. * w;
+  for( auto w : h_grid->weights() ) ref_weight_sum += T(2.) * w;
 
-  double weight_sum = 0.;
+  T weight_sum = T(0.);
   for( auto w : mg.weights() ) weight_sum += w;
-  REQUIRE_THAT( weight_sum, Catch::Matchers::WithinAbs(ref_weight_sum, 1e-10) );
+  // A relative tolerance here (rather than the absolute tight_tol/loose_tol
+  // used elsewhere) since this sum's magnitude (hundreds) swamps an
+  // absolute per-point tolerance.
+  REQUIRE_THAT( weight_sum, Catch::Matchers::WithinRel(ref_weight_sum, loose_tol<T>()) );
 
   // Full-molecule atom subset reproduces the flat list exactly.
   auto all_batches = mg.batches_for_atoms({0, 1, 2});
-  std::vector<cartesian_pt_t<double>> concat_pts;
-  std::vector<double> concat_wts;
+  std::vector<cartesian_pt_t<T>> concat_pts;
+  std::vector<T> concat_wts;
   for( auto& b : all_batches ) {
     concat_pts.insert(concat_pts.end(), b.points.begin(), b.points.end());
     concat_wts.insert(concat_wts.end(), b.weights.begin(), b.weights.end());
@@ -237,12 +260,13 @@ TEST_CASE( "MolecularGrid Hetero Round Trip", "[molecular-grid]" ) {
   const auto& flat_pts = mg.points();
   const auto& flat_wts = mg.weights();
   for( size_t i = 0; i < concat_pts.size(); ++i ) {
-    require_points_equal( concat_pts[i], flat_pts[i] );
-    REQUIRE_THAT( concat_wts[i], Catch::Matchers::WithinAbs(flat_wts[i], 1e-13) );
+    require_points_equal<T>( concat_pts[i], flat_pts[i] );
+    REQUIRE_THAT( concat_wts[i], Catch::Matchers::WithinAbs(flat_wts[i], tight_tol<T>()) );
   }
 }
 
-TEST_CASE( "MolecularGridDefaults Sanity", "[molecular-grid]" ) {
+TEMPLATE_TEST_CASE( "MolecularGridDefaults Sanity", "[molecular-grid]", double, float ) {
+  using T = TestType;
 
   const std::vector<RadialQuad> radial_quads = {
     RadialQuad::MuraKnowles, RadialQuad::MurrayHandyLaming, RadialQuad::TreutlerAhlrichs
@@ -269,28 +293,28 @@ TEST_CASE( "MolecularGridDefaults Sanity", "[molecular-grid]" ) {
   }
 
   SECTION("create_default_unpruned_grid_spec builds a usable spec") {
-    auto spec = MolecularGridDefaults::create_default_unpruned_grid_spec(
+    auto spec = MolecularGridDefaults<T>::create_default_unpruned_grid_spec(
       AtomicId(8), RadialQuad::MuraKnowles, AtomicGridSizeDefault::FineGrid );
-    auto grid = SphericalGridFactory::generate_grid(spec);
+    auto grid = SphericalGridFactory<T>::generate_grid(spec);
     REQUIRE( grid->npts() > 0 );
   }
 
   SECTION("make_atom_instances wires per-element templates to atom instances") {
-    std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr> element_grids = {
-      { 8, make_test_grid_ptr(14, 50) },
-      { 1, make_test_grid_ptr(8, 26) },
+    std::unordered_map<AtomicId, typename SphericalGridFactory<T>::spherical_grid_ptr> element_grids = {
+      { 8, make_test_grid_ptr<T>(14, 50) },
+      { 1, make_test_grid_ptr<T>(8, 26) },
     };
     std::vector<AtomicId> ids = { 8, 1, 1 };
-    std::vector<cartesian_pt_t<double>> pos = { {0.,0.,0.}, {1.,1.,0.}, {-1.,1.,0.} };
+    std::vector<cartesian_pt_t<T>> pos = { {T(0.),T(0.),T(0.)}, {T(1.),T(1.),T(0.)}, {T(-1.),T(1.),T(0.)} };
 
-    auto atoms = make_atom_instances(ids, pos, element_grids);
+    auto atoms = make_atom_instances<T>(ids, pos, element_grids);
     REQUIRE( atoms.size() == 3 );
     REQUIRE( atoms[0].grid == element_grids.at(8) );
     REQUIRE( atoms[1].grid == element_grids.at(1) );
     REQUIRE( atoms[2].grid == element_grids.at(1) );
 
     REQUIRE_THROWS_AS(
-      make_atom_instances({99}, {{0.,0.,0.}}, element_grids),
+      (make_atom_instances<T>({99}, {{T(0.),T(0.),T(0.)}}, element_grids)),
       std::out_of_range );
   }
 }

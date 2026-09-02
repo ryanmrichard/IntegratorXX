@@ -12,22 +12,23 @@ namespace IntegratorXX {
 
 namespace detail {
 
-template <typename AngularQuadType, typename RadialQuadType>
-auto make_pruned_grid_impl(const RadialQuadType& rq, 
+template <template<typename> class AngularQuadType, typename RadialQuadType>
+auto make_pruned_grid_impl(const RadialQuadType& rq,
   const std::vector<PruningRegion>& pruning_regions) {
 
-  RadialGridPartition<AngularQuadType> rgp;
+  using T = typename RadialQuadType::point_type;
+  RadialGridPartition<AngularQuadType<T>> rgp;
   for( auto& region : pruning_regions ) {
-    rgp.add_quad( rq, region.idx_st, AngularQuadType(region.angular_size) );
+    rgp.add_quad( rq, region.idx_st, AngularQuadType<T>(region.angular_size) );
   }
   rgp.finalize(rq);
 
-  return SphericalGridFactory::generate_pruned_grid(rq, std::move(rgp));
+  return SphericalGridFactory<T>::generate_pruned_grid(rq, std::move(rgp));
 
 }
 
 template <typename RadialQuadType>
-auto make_pruned_grid(const RadialQuadType& rq, 
+auto make_pruned_grid(const RadialQuadType& rq,
   const std::vector<PruningRegion>& pruning_regions) {
 
   if(pruning_regions.size() == 0)
@@ -41,38 +42,39 @@ auto make_pruned_grid(const RadialQuadType& rq,
 
   switch(angular_quad) {
     case AngularQuad::AhrensBeylkin:
-      return make_pruned_grid_impl<ah_type>(rq, pruning_regions);
+      return make_pruned_grid_impl<detail::ah_type>(rq, pruning_regions);
     case AngularQuad::Delley:
-      return make_pruned_grid_impl<de_type>(rq, pruning_regions);
+      return make_pruned_grid_impl<detail::de_type>(rq, pruning_regions);
     case AngularQuad::LebedevLaikov:
-      return make_pruned_grid_impl<ll_type>(rq, pruning_regions);
+      return make_pruned_grid_impl<detail::ll_type>(rq, pruning_regions);
     case AngularQuad::Womersley:
-      return make_pruned_grid_impl<wo_type>(rq, pruning_regions);
+      return make_pruned_grid_impl<detail::wo_type>(rq, pruning_regions);
     default:
       throw std::runtime_error("Unsupported Angular Quadrature");
       abort();
   }
-  
+
 
 }
 
 } // Implementation Details
 
-SphericalGridFactory::spherical_grid_ptr 
-  SphericalGridFactory::generate_pruned_grid( RadialQuad rq, 
-  const RadialTraits& traits, 
-  const std::vector<PruningRegion>& pruning_regions) { 
+template <typename T>
+typename SphericalGridFactory<T>::spherical_grid_ptr
+  SphericalGridFactory<T>::generate_pruned_grid( RadialQuad rq,
+  const RadialTraits<T>& traits,
+  const std::vector<PruningRegion>& pruning_regions) {
 
   switch( rq ) {
 
     case RadialQuad::Becke:
-      return detail::make_pruned_grid( bk_type(traits), pruning_regions );
+      return detail::make_pruned_grid( detail::bk_type<T>(traits), pruning_regions );
     case RadialQuad::MuraKnowles:
-      return detail::make_pruned_grid( mk_type(traits), pruning_regions );
+      return detail::make_pruned_grid( detail::mk_type<T>(traits), pruning_regions );
     case RadialQuad::MurrayHandyLaming:
-      return detail::make_pruned_grid( mhl_type(traits), pruning_regions );
+      return detail::make_pruned_grid( detail::mhl_type<T>(traits), pruning_regions );
     case RadialQuad::TreutlerAhlrichs:
-      return detail::make_pruned_grid( ta_type(traits), pruning_regions );
+      return detail::make_pruned_grid( detail::ta_type<T>(traits), pruning_regions );
 
     default:
       throw std::runtime_error("Unsupported Radial Quadrature");
@@ -83,8 +85,9 @@ SphericalGridFactory::spherical_grid_ptr
 }
 
 
-PrunedSphericalGridSpecification create_pruned_spec(
-  PruningScheme scheme, UnprunedSphericalGridSpecification unp
+template <typename T>
+PrunedSphericalGridSpecification<T> create_pruned_spec(
+  PruningScheme scheme, UnprunedSphericalGridSpecification<T> unp
 ) {
 
   if(!unp.radial_traits) throw std::runtime_error("RadialTraits Not Set");
@@ -93,14 +96,14 @@ PrunedSphericalGridSpecification create_pruned_spec(
       return robust_psi4_pruning_scheme(unp);
     case PruningScheme::Treutler:
       return treutler_pruning_scheme(unp);
-    
+
     // Default to Unpruned Grid
     case PruningScheme::Unpruned:
     default:
       std::vector<PruningRegion> pruning_regions = {
         {0ul, unp.radial_traits->npts(), unp.angular_quad, unp.angular_size}
       };
-      return PrunedSphericalGridSpecification(
+      return PrunedSphericalGridSpecification<T>(
         unp.radial_quad, unp.radial_traits->clone(), pruning_regions
       );
   }

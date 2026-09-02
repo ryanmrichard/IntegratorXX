@@ -16,9 +16,10 @@ auto get_treutler_low_med_sizes() {
   return std::make_pair(low_sz, med_sz);
 }
 
-PrunedSphericalGridSpecification treutler_pruning_scheme_impl(
-  size_t low_sz, size_t med_sz, AngularQuad angular_quad, 
-  UnprunedSphericalGridSpecification unp ) {
+template <typename T>
+PrunedSphericalGridSpecification<T> treutler_pruning_scheme_impl(
+  size_t low_sz, size_t med_sz, AngularQuad angular_quad,
+  UnprunedSphericalGridSpecification<T> unp ) {
 
   const size_t rsz = unp.radial_traits->npts();
   const size_t r_div_3 = rsz / 3ul + 1ul;
@@ -29,33 +30,34 @@ PrunedSphericalGridSpecification treutler_pruning_scheme_impl(
     {r_div_2, rsz,     angular_quad, unp.angular_size}
   };
 
-  return PrunedSphericalGridSpecification(
+  return PrunedSphericalGridSpecification<T>(
     unp.radial_quad, unp.radial_traits->clone(), pruning_regions
   );
-  
+
 }
 
 } // Implementation details
 
 
 
-PrunedSphericalGridSpecification treutler_pruning_scheme(
-  UnprunedSphericalGridSpecification unp ) {
+template <typename T>
+PrunedSphericalGridSpecification<T> treutler_pruning_scheme(
+  UnprunedSphericalGridSpecification<T> unp ) {
 
   size_t low_sz, med_sz;
   const auto angular_quad = unp.angular_quad;
   switch(angular_quad) {
     case AngularQuad::AhrensBeylkin:
-      std::tie(low_sz, med_sz) = detail::get_treutler_low_med_sizes<ah_type>();
+      std::tie(low_sz, med_sz) = detail::get_treutler_low_med_sizes<detail::ah_type<T>>();
       break;
     case AngularQuad::Delley:
-      std::tie(low_sz, med_sz) = detail::get_treutler_low_med_sizes<de_type>();
+      std::tie(low_sz, med_sz) = detail::get_treutler_low_med_sizes<detail::de_type<T>>();
       break;
     case AngularQuad::LebedevLaikov:
-      std::tie(low_sz, med_sz) = detail::get_treutler_low_med_sizes<ll_type>();
+      std::tie(low_sz, med_sz) = detail::get_treutler_low_med_sizes<detail::ll_type<T>>();
       break;
     case AngularQuad::Womersley:
-      std::tie(low_sz, med_sz) = detail::get_treutler_low_med_sizes<wo_type>();
+      std::tie(low_sz, med_sz) = detail::get_treutler_low_med_sizes<detail::wo_type<T>>();
       break;
     default:
       throw std::runtime_error("Unsupported Angular Quadrature");

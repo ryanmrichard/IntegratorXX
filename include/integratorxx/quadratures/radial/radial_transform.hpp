@@ -7,6 +7,7 @@
 namespace IntegratorXX {
 
 // Base type for all radial traits
+template <typename T>
 struct RadialTraits {
   virtual ~RadialTraits() noexcept = default;
   virtual std::unique_ptr<RadialTraits> clone() const = 0;
@@ -14,8 +15,8 @@ struct RadialTraits {
   virtual bool compare( const RadialTraits& ) const noexcept = 0;
 };
 
-template <typename RadialTraitsType>
-const RadialTraitsType& radial_traits_cast( const RadialTraits& traits ) {
+template <typename RadialTraitsType, typename T>
+const RadialTraitsType& radial_traits_cast( const RadialTraits<T>& traits ) {
   return dynamic_cast<const RadialTraitsType&>(traits);
 }
 
@@ -39,7 +40,7 @@ public:
            class = std::enable_if_t<std::is_default_constructible<T>::value>>
   RadialTransformQuadrature() : base_type(T{}) {}
 
-  RadialTransformQuadrature(const RadialTraits& traits) :
+  RadialTransformQuadrature(const RadialTraits<point_type>& traits) :
     RadialTransformQuadrature(radial_traits_cast<RadialTraitsType>(traits)) { }
 
   template <typename... Args,

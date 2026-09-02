@@ -48,18 +48,19 @@ std::tuple<size_t,size_t> default_grid_size( AtomicId, RadialQuad, AtomicGridSiz
 /// @brief Element-indexed default grid-specification builders, filling the
 ///        gap left by SphericalGridFactory (which has no per-element
 ///        presets of its own).
+template <typename T>
 struct MolecularGridDefaults {
 
-  static UnprunedSphericalGridSpecification create_default_unpruned_grid_spec(
+  static UnprunedSphericalGridSpecification<T> create_default_unpruned_grid_spec(
     AtomicId, RadialQuad, size_t radial_size, size_t angular_size );
 
-  static UnprunedSphericalGridSpecification create_default_unpruned_grid_spec(
+  static UnprunedSphericalGridSpecification<T> create_default_unpruned_grid_spec(
     AtomicId, RadialQuad, AtomicGridSizeDefault );
 
   template <typename... Args>
-  static PrunedSphericalGridSpecification create_default_pruned_grid_spec(
+  static PrunedSphericalGridSpecification<T> create_default_pruned_grid_spec(
     PruningScheme scheme, Args&&... args ) {
-    return create_pruned_spec( scheme,
+    return create_pruned_spec<T>( scheme,
       create_default_unpruned_grid_spec(std::forward<Args>(args)...) );
   }
 
@@ -67,11 +68,11 @@ struct MolecularGridDefaults {
   ///        GauXC's Molecule-taking equivalent, this only ever needs the
   ///        set of distinct elements present, not a full molecule).
   template <typename... Args>
-  static std::unordered_map<AtomicId, PrunedSphericalGridSpecification>
+  static std::unordered_map<AtomicId, PrunedSphericalGridSpecification<T>>
     create_default_grid_spec_map( const std::vector<AtomicId>& unique_ids,
       PruningScheme scheme, Args&&... args ) {
 
-    std::unordered_map<AtomicId, PrunedSphericalGridSpecification> molmap;
+    std::unordered_map<AtomicId, PrunedSphericalGridSpecification<T>> molmap;
     for( auto id : unique_ids )
     if( !molmap.count(id) ) {
       molmap.emplace( id,
@@ -80,9 +81,9 @@ struct MolecularGridDefaults {
     return molmap;
   }
 
-  static std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr>
+  static std::unordered_map<AtomicId, typename SphericalGridFactory<T>::spherical_grid_ptr>
     generate_gridmap(
-      const std::unordered_map<AtomicId, PrunedSphericalGridSpecification>& gs_map );
+      const std::unordered_map<AtomicId, PrunedSphericalGridSpecification<T>>& gs_map );
 
 };
 
@@ -93,9 +94,17 @@ struct MolecularGridDefaults {
 /// @param positions  Per-atom-instance molecular-frame positions.
 /// @param element_grids Map from atomic number to a (possibly shared) atomic-grid template.
 /// @throws std::out_of_range if an id in `atomic_ids` has no entry in `element_grids`.
-std::vector<AtomInstance> make_atom_instances(
-  const std::vector<AtomicId>&               atomic_ids,
-  const std::vector<cartesian_pt_t<double>>& positions,
-  const std::unordered_map<AtomicId, SphericalGridFactory::spherical_grid_ptr>& element_grids );
+template <typename T>
+std::vector<AtomInstance<T>> make_atom_instances(
+  const std::vector<AtomicId>&          atomic_ids,
+  const std::vector<cartesian_pt_t<T>>& positions,
+  const std::unordered_map<AtomicId, typename SphericalGridFactory<T>::spherical_grid_ptr>& element_grids );
 
 }
+
+// Out-of-line definitions: the table lookups declared above (marked
+// `inline` in impl/defaults.hpp so this trailer is safe to include from
+// every TU that includes this header) and the
+// MolecularGridDefaults<T>/make_atom_instances<T> template bodies (which
+// are header-only-safe for any T by virtue of being templates).
+#include <integratorxx/molecular_grid/impl/defaults.hpp>

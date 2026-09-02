@@ -3,6 +3,7 @@
 #include <integratorxx/generators/spherical_factory.hpp>
 #include <integratorxx/batch/spherical_micro_batcher.hpp>
 #include <integratorxx/types.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 #include <integratorxx/molecular_grid/partition_weights.hpp>
 
 #include <algorithm>
@@ -21,10 +22,11 @@ namespace IntegratorXX {
 /// element reuse one SphericalGridFactory-built template); MolecularGrid
 /// clones it internally via SphericalQuadratureBase::clone() and never
 /// mutates the shared template.
+template <typename T>
 struct AtomInstance {
-  using spherical_grid_ptr = SphericalGridFactory::spherical_grid_ptr;
-  cartesian_pt_t<double> center;
-  spherical_grid_ptr     grid;
+  using spherical_grid_ptr = typename SphericalGridFactory<T>::spherical_grid_ptr;
+  cartesian_pt_t<T>  center;
+  spherical_grid_ptr grid;
 };
 
 /// @brief Cheap, non-materializing metadata for one molecular-grid batch.
@@ -32,13 +34,14 @@ struct AtomInstance {
 /// Available for every batch without ever copying that batch's point/weight
 /// vectors -- backed directly by the already-resident storage of the owning
 /// atom's SphericalMicroBatcher.
+template <typename T>
 struct BatchInfo {
   size_t atom_index        = 0;  ///< index into the MolecularGrid's atom list
   size_t local_batch_index = 0;  ///< index into that atom's own batch list
   size_t point_begin       = 0;  ///< global flat point-index range [point_begin,point_end)
   size_t point_end         = 0;
-  cartesian_pt_t<double> box_lo{};
-  cartesian_pt_t<double> box_up{};
+  cartesian_pt_t<T> box_lo{};
+  cartesian_pt_t<T> box_up{};
 };
 
 /// @brief One materialized (owned-copy) molecular-grid batch.
@@ -46,9 +49,10 @@ struct BatchInfo {
 /// Matches SphericalMicroBatcher::at()'s value-return convention: mutating
 /// a returned MolecularGridBatch does not feed back into the owning
 /// MolecularGrid.
-struct MolecularGridBatch : BatchInfo {
-  std::vector<cartesian_pt_t<double>> points;
-  std::vector<double>                 weights;
+template <typename T>
+struct MolecularGridBatch : BatchInfo<T> {
+  std::vector<cartesian_pt_t<T>> points;
+  std::vector<T>                 weights;
 };
 
 /// @brief Assembles a multi-atom integration grid from per-atom "atomic
@@ -66,12 +70,13 @@ struct MolecularGridBatch : BatchInfo {
 /// apply_partition_weights()). This is a deliberate design choice -- see
 /// the class-level discussion in the IntegratorXX repository's design notes
 /// for why full eager materialization at construction is avoided.
+template <typename T>
 class MolecularGrid {
 public:
-  using spherical_grid_ptr = SphericalGridFactory::spherical_grid_ptr;
-  using point_type         = cartesian_pt_t<double>;
+  using spherical_grid_ptr = typename SphericalGridFactory<T>::spherical_grid_ptr;
+  using point_type         = cartesian_pt_t<T>;
   using point_container    = std::vector<point_type>;
-  using weight_container   = std::vector<double>;
+  using weight_container   = std::vector<T>;
   using batcher_type       = SphericalMicroBatcher<point_container, weight_container>;
 
   MolecularGrid() = default;
@@ -79,7 +84,7 @@ public:
   /// @param atoms       Per-atom-instance (position, atomic-grid template) pairs.
   /// @param max_batch_sz Maximum number of points per micro-batch, forwarded
   ///                      to each atom's SphericalMicroBatcher.
-  MolecularGrid( std::vector<AtomInstance> atoms, size_t max_batch_sz ) :
+  MolecularGrid( std::vector<AtomInstance<T>> atoms, size_t max_batch_sz ) :
     atoms_( std::move(atoms) ) {
 
     const size_t na = atoms_.size();
@@ -122,7 +127,7 @@ public:
   size_t nbatches()  const noexcept { return batch_atom_index_.size(); }
 
   /// @throws std::out_of_range if `iatom >= natoms()`.
-  const AtomInstance& atom( size_t iatom ) const {
+  const AtomInstance<T>& atom( size_t iatom ) const {
     if( iatom >= natoms() ) throw std::out_of_range("MolecularGrid::atom: index out of range");
     return atoms_[iatom];
   }
@@ -146,7 +151,7 @@ public:
 
   /// Cheap metadata only -- never copies a point/weight vector.
   /// @throws std::out_of_range if `ibatch >= nbatches()`.
-  BatchInfo batch_info( size_t ibatch ) const {
+  BatchInfo<T> batch_info( size_t ibatch ) const {
     if( ibatch >= nbatches() ) throw std::out_of_range("MolecularGrid::batch_info: index out of range");
 
     const size_t ia = batch_atom_index_[ibatch];
@@ -157,7 +162,7 @@ public:
     (void)wb; (void)we;
     auto [box_lo, box_up] = detail::get_box_bounds_points(pb, pe);
 
-    BatchInfo info;
+    BatchInfo<T> info;
     info.atom_index        = ia;
     info.local_batch_index = ib;
     info.point_begin       = batch_point_offset_[ibatch];
@@ -169,7 +174,7 @@ public:
 
   /// Materializes exactly the requested batch's points/weights.
   /// @throws std::out_of_range if `ibatch >= nbatches()`.
-  MolecularGridBatch batch( size_t ibatch ) const {
+  MolecularGridBatch<T> batch( size_t ibatch ) const {
     if( ibatch >= nbatches() ) throw std::out_of_range("MolecularGrid::batch: index out of range");
 
     const size_t ia = batch_atom_index_[ibatch];
@@ -177,7 +182,7 @@ public:
 
     auto [box_lo, box_up, points, weights] = atom_batchers_[ia].at(ib);
 
-    MolecularGridBatch mb;
+    MolecularGridBatch<T> mb;
     mb.atom_index        = ia;
     mb.local_batch_index = ib;
     mb.point_begin       = batch_point_offset_[ibatch];
@@ -194,8 +199,8 @@ public:
   /// @param atom_indices Atom indices whose batches to materialize; may
   ///        contain duplicates or be given in any order.
   /// @throws std::out_of_range if any index is `>= natoms()`.
-  std::vector<MolecularGridBatch> batches_for_atoms( const std::vector<size_t>& atom_indices ) const {
-    std::vector<MolecularGridBatch> out;
+  std::vector<MolecularGridBatch<T>> batches_for_atoms( const std::vector<size_t>& atom_indices ) const {
+    std::vector<MolecularGridBatch<T>> out;
     for( auto ia : atom_indices ) {
       if( ia >= natoms() )
         throw std::out_of_range("MolecularGrid::batches_for_atoms: atom index out of range");
@@ -211,7 +216,7 @@ public:
   /// batch is never split, so a caller wanting an exact array slice should
   /// index points()/weights() directly instead.
   /// @throws std::out_of_range if the range is empty or `pt_end > npts()`.
-  std::vector<MolecularGridBatch> batches_for_point_range( size_t pt_begin, size_t pt_end ) const {
+  std::vector<MolecularGridBatch<T>> batches_for_point_range( size_t pt_begin, size_t pt_end ) const {
     if( pt_begin >= pt_end || pt_end > npts() )
       throw std::out_of_range("MolecularGrid::batches_for_point_range: invalid point range");
     if( nbatches() == 0 ) return {};
@@ -226,7 +231,7 @@ public:
     const size_t ib_last = static_cast<size_t>(
       std::distance(batch_point_offset_.begin(), last_it) - 1 );
 
-    std::vector<MolecularGridBatch> out;
+    std::vector<MolecularGridBatch<T>> out;
     out.reserve(ib_last - ib_first + 1);
     for( size_t ib = ib_first; ib <= ib_last; ++ib )
       out.push_back( batch(ib) );
@@ -272,8 +277,8 @@ public:
   }
 
 private:
-  std::vector<AtomInstance> atoms_;
-  std::vector<batcher_type> atom_batchers_;
+  std::vector<AtomInstance<T>> atoms_;
+  std::vector<batcher_type>    atom_batchers_;
 
   std::vector<size_t> atom_point_offset_;  // size natoms()+1
   std::vector<size_t> atom_batch_offset_;  // size natoms()+1
@@ -286,8 +291,8 @@ private:
   mutable weight_container weights_cache_;
   mutable bool materialized_ = false;
 
-  std::vector<double> atom_rab_;           // natoms*natoms, row-major
-  std::vector<double> atom_dist_nearest_;  // size natoms()
+  std::vector<T> atom_rab_;           // natoms*natoms, row-major
+  std::vector<T> atom_dist_nearest_;  // size natoms()
   bool geometry_cache_valid_ = false;
   bool weights_partitioned_  = false;
 
@@ -319,21 +324,23 @@ private:
   void ensure_geometry_cache_() {
     if( geometry_cache_valid_ ) return;
 
+    using traits = fp_traits<T>;
+
     const size_t na = natoms();
-    atom_rab_.assign(na * na, 0.0);
+    atom_rab_.assign(na * na, traits::from_integer(0));
     for( size_t i = 0; i < na; ++i )
     for( size_t j = 0; j < i; ++j ) {
       const auto& ci = atoms_[i].center;
       const auto& cj = atoms_[j].center;
-      const double dx = ci[0] - cj[0], dy = ci[1] - cj[1], dz = ci[2] - cj[2];
-      const double r = std::sqrt(dx*dx + dy*dy + dz*dz);
+      const T dx = ci[0] - cj[0], dy = ci[1] - cj[1], dz = ci[2] - cj[2];
+      const T r = traits::sqrt(dx*dx + dy*dy + dz*dz);
       atom_rab_[i + j*na] = r;
       atom_rab_[j + i*na] = r;
     }
 
-    atom_dist_nearest_.assign(na, std::numeric_limits<double>::infinity());
+    atom_dist_nearest_.assign(na, traits::infinity());
     for( size_t i = 0; i < na; ++i ) {
-      double dn = std::numeric_limits<double>::infinity();
+      T dn = traits::infinity();
       for( size_t j = 0; j < na; ++j )
         if( i != j && atom_rab_[i + j*na] < dn ) dn = atom_rab_[i + j*na];
       atom_dist_nearest_[i] = dn;
@@ -342,9 +349,18 @@ private:
     geometry_cache_valid_ = true;
   }
 
-  friend void reference_becke_partition_weights( MolecularGrid& );
-  friend void reference_ssf_partition_weights( MolecularGrid& );
-  friend void reference_lko_partition_weights( MolecularGrid& );
+  friend void reference_becke_partition_weights<T>( MolecularGrid<T>& );
+  friend void reference_ssf_partition_weights<T>( MolecularGrid<T>& );
+  friend void reference_lko_partition_weights<T>( MolecularGrid<T>& );
 };
 
 }
+
+// Out-of-line definitions of the reference_*_partition_weights<T> function
+// templates declared by partition_weights.hpp (included above), which need
+// MolecularGrid<T>'s complete definition (they reach into it via
+// friendship) -- included here, after that definition, rather than as a
+// trailer on partition_weights.hpp itself, to avoid a circular include
+// that would see MolecularGrid<T> only forward-declared. Header-only-safe
+// for any T by virtue of being templates.
+#include <integratorxx/molecular_grid/impl/partition_weights.hpp>

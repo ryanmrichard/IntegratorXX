@@ -13,7 +13,7 @@ auto get_robust_low_med_sizes(AngularSize asz) {
   const auto base_order = traits::algebraic_order_by_npts(asz);
   if( base_order < 0 ) throw std::runtime_error("Invalid Base Grid");
 
-  const auto med_order = 
+  const auto med_order =
     traits::next_algebraic_order(base_order > 6 ? base_order-6 : base_order);
   const auto low_order = traits::next_algebraic_order(7);
 
@@ -24,9 +24,10 @@ auto get_robust_low_med_sizes(AngularSize asz) {
 }
 
 
-PrunedSphericalGridSpecification robust_psi4_pruning_scheme_impl(
-  size_t low_sz, size_t med_sz, AngularQuad angular_quad, 
-  UnprunedSphericalGridSpecification unp ) {
+template <typename T>
+PrunedSphericalGridSpecification<T> robust_psi4_pruning_scheme_impl(
+  size_t low_sz, size_t med_sz, AngularQuad angular_quad,
+  UnprunedSphericalGridSpecification<T> unp ) {
 
   const size_t rsz = unp.radial_traits->npts();
   const size_t r_div_4 = rsz / 4ul + 1ul;
@@ -37,33 +38,34 @@ PrunedSphericalGridSpecification robust_psi4_pruning_scheme_impl(
     {r_div_2,     rsz, angular_quad, unp.angular_size}
   };
 
-  return PrunedSphericalGridSpecification(
+  return PrunedSphericalGridSpecification<T>(
     unp.radial_quad, unp.radial_traits->clone(), pruning_regions
   );
-  
+
 }
 
 } // Implementation Details
 
 
-PrunedSphericalGridSpecification robust_psi4_pruning_scheme(
-  UnprunedSphericalGridSpecification unp ) {
+template <typename T>
+PrunedSphericalGridSpecification<T> robust_psi4_pruning_scheme(
+  UnprunedSphericalGridSpecification<T> unp ) {
 
   size_t low_sz, med_sz;
   const auto angular_quad = unp.angular_quad;
   const auto asz = unp.angular_size;
   switch(angular_quad) {
     case AngularQuad::AhrensBeylkin:
-      std::tie(low_sz, med_sz) = detail::get_robust_low_med_sizes<ah_type>(asz);
+      std::tie(low_sz, med_sz) = detail::get_robust_low_med_sizes<detail::ah_type<T>>(asz);
       break;
     case AngularQuad::Delley:
-      std::tie(low_sz, med_sz) = detail::get_robust_low_med_sizes<de_type>(asz);
+      std::tie(low_sz, med_sz) = detail::get_robust_low_med_sizes<detail::de_type<T>>(asz);
       break;
     case AngularQuad::LebedevLaikov:
-      std::tie(low_sz, med_sz) = detail::get_robust_low_med_sizes<ll_type>(asz);
+      std::tie(low_sz, med_sz) = detail::get_robust_low_med_sizes<detail::ll_type<T>>(asz);
       break;
     case AngularQuad::Womersley:
-      std::tie(low_sz, med_sz) = detail::get_robust_low_med_sizes<wo_type>(asz);
+      std::tie(low_sz, med_sz) = detail::get_robust_low_med_sizes<detail::wo_type<T>>(asz);
       break;
     default:
       throw std::runtime_error("Unsupported Angular Quadrature");
