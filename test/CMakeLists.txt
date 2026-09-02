@@ -57,6 +57,12 @@ target_link_libraries( composite_quadratures PUBLIC integratorxx_common_ut )
 add_executable( assoc_legendre assoc_legendre.cxx )
 target_link_libraries( assoc_legendre PUBLIC integratorxx_common_ut )
 
+add_executable( molecular_grid molecular_grid.cxx )
+target_link_libraries( molecular_grid PUBLIC integratorxx_common_ut )
+
+add_executable( molecular_grid_partition_weights molecular_grid_partition_weights.cxx )
+target_link_libraries( molecular_grid_partition_weights PUBLIC integratorxx_common_ut )
+
 add_test( NAME QUADRATURE_MANIP         COMMAND quadrature_manipulation )
 add_test( NAME QUADRATURES_1D           COMMAND 1d_quadratures          )
 add_test( NAME QUADRATURES_COMPOSITE    COMMAND composite_quadratures   )
@@ -67,3 +73,5 @@ add_test( NAME QUADRATURES_MURAKNOWLES  COMMAND muraknowles             )
 add_test( NAME QUADRATURES_CHEBYSHEV1   COMMAND gausschebyshev1         )
 add_test( NAME QUADRATURES_CHEBYSHEV2   COMMAND gausschebyshev2         )
 add_test( NAME ASSOC_LEGENDRE           COMMAND assoc_legendre          )
+add_test( NAME MOLECULAR_GRID           COMMAND molecular_grid          )
+add_test( NAME MOLECULAR_GRID_PARTITION_WEIGHTS COMMAND molecular_grid_partition_weights )
