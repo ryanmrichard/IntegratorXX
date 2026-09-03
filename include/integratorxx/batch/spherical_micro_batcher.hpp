@@ -2,6 +2,7 @@
 
 #include <integratorxx/composite_quadratures/spherical_quadrature.hpp>
 #include <integratorxx/type_traits.hpp>
+#include <integratorxx/util/fp_traits.hpp>
 #include <chrono>
 #include <iostream>
 #include <iomanip>
@@ -154,13 +155,23 @@ auto partition_box(
 
   std::vector<T> x_part(npart+1), y_part(npart+1), z_part(npart+1);
 
-  const auto delta_x = extent_x / npart;
-  const auto delta_y = extent_y / npart;
-  const auto delta_z = extent_z / npart;
+  // npart/i are raw loop-counter integers, not T -- routed through
+  // fp_traits<T>::from_integer so this compiles for any T (a raw
+  // `size_t * T`/`T / size_t` requires an exact-type overload of
+  // operator*/operator/ that most non-builtin T don't provide, since it's
+  // resolved by template argument deduction, which -- unlike ordinary
+  // overload resolution -- does not apply an implicit conversion to find
+  // one).
+  using traits = fp_traits<T>;
+  const auto npart_T = traits::from_integer(static_cast<ixx_int>(npart));
+  const auto delta_x = extent_x / npart_T;
+  const auto delta_y = extent_y / npart_T;
+  const auto delta_z = extent_z / npart_T;
   for( auto i = 0ul; i < npart; ++i ) {
-    x_part[i] = bbox_lo[0] + i * delta_x;
-    y_part[i] = bbox_lo[1] + i * delta_y;
-    z_part[i] = bbox_lo[2] + i * delta_z;
+    const auto i_T = traits::from_integer(static_cast<ixx_int>(i));
+    x_part[i] = bbox_lo[0] + i_T * delta_x;
+    y_part[i] = bbox_lo[1] + i_T * delta_y;
+    z_part[i] = bbox_lo[2] + i_T * delta_z;
   }
   x_part.back() = bbox_up[0];
   y_part.back() = bbox_up[1];
