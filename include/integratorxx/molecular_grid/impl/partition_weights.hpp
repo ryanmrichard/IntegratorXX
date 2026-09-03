@@ -37,8 +37,16 @@ void reference_becke_partition_weights( MolecularGrid<T>& mg ) {
   const auto c0_5 = traits::from_real(IXX_REAL(0.5));
   const auto c1   = traits::from_integer(1);
 
-  auto hBecke = [&]( auto x ) { return c1_5*x - c0_5*x*x*x; };       // Eq. 19
-  auto gBecke = [&]( auto x ) { return hBecke(hBecke(hBecke(x))); }; // Eq. 20 f_3
+  // hBecke is provably range-preserving on [-1,1] for the true real-valued
+  // function (monotone, h(+-1) = +-1), so gBecke -- its 3-fold self-
+  // composition -- also maps [-1,1] onto [-1,1]. Naive interval arithmetic
+  // can't recognize that x is the same value on both sides of "x*x*x", so
+  // each application can round outward past that provably-exact bound; the
+  // clamp on every hBecke call (not just the final gBecke result) re-tightens
+  // at each of the three nesting levels, since otherwise the first two
+  // over-wide evaluations would poison the third.
+  auto hBecke = [&]( auto x ) { return traits::clamp(c1_5*x - c0_5*x*x*x, -c1, c1); }; // Eq. 19
+  auto gBecke = [&]( auto x ) { return hBecke(hBecke(hBecke(x))); };                    // Eq. 20 f_3
 
   const size_t natoms = mg.natoms();
   const auto&  RAB     = mg.atom_rab_;
@@ -103,13 +111,19 @@ void reference_ssf_partition_weights( MolecularGrid<T>& mg ) {
   const auto c5     = traits::from_real(IXX_REAL(5.0));
   const auto c16    = traits::from_real(IXX_REAL(16.0));
 
+  // Same self-correlation risk as gBecke (see reference_becke_partition_weights):
+  // s_x is reused to build s_x2/s_x3/s_x5/s_x7, which naive interval
+  // arithmetic evaluates without tracking that correlation, so the result
+  // can round outward past the provably-exact [-1,1] range. Only one
+  // evaluation here (no nesting), so a single clamp on the final result
+  // suffices.
   auto gFrisch = [&]( auto x ) {
     const auto s_x  = x / magic;
     const auto s_x2 = s_x  * s_x;
     const auto s_x3 = s_x  * s_x2;
     const auto s_x5 = s_x3 * s_x2;
     const auto s_x7 = s_x5 * s_x2;
-    return (c35*(s_x - s_x3) + c21*s_x5 - c5*s_x7) / c16;
+    return traits::clamp((c35*(s_x - s_x3) + c21*s_x5 - c5*s_x7) / c16, -c1, c1);
   };
 
   const size_t natoms = mg.natoms();
@@ -192,7 +206,9 @@ void reference_lko_partition_weights( MolecularGrid<T>& mg ) {
     "keep the IXX_REAL literal below in sync with lko_r_cutoff");
   const auto r_cutoff = traits::from_real(IXX_REAL(5.0));
 
-  auto hBecke = [&]( auto x ) { return c1_5*x - c0_5*x*x*x; };
+  // See reference_becke_partition_weights for why the clamp is on every
+  // hBecke call, not just the final gBecke result.
+  auto hBecke = [&]( auto x ) { return traits::clamp(c1_5*x - c0_5*x*x*x, -c1, c1); };
   auto gBecke = [&]( auto x ) { return hBecke(hBecke(hBecke(x))); };
 
   const size_t natoms = mg.natoms();

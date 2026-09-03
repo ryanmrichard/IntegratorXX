@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <integratorxx/config.hpp>
 #include <limits>
@@ -26,7 +27,11 @@ namespace IntegratorXX {
  *  template performs a two-step (`using std::fn; fn(x);`) call, so such a type
  *  works with **no specialization at all**. Specialize only when ADL is not
  *  sufficient, or when the default behaviour is wrong for the type -- see
- *  `from_real` below for the motivating case.
+ *  `from_real` below for the motivating case, or `clamp` for a type whose
+ *  value represents a set (e.g. an interval enclosure) rather than a single
+ *  scalar: `std::clamp`'s compare-and-select default silently does the wrong
+ *  thing there, and such a type should specialize `clamp` to intersect with
+ *  `[lo, hi]` instead.
  *
  *  @tparam T      The floating-point-like type.
  *  @tparam Enable Hook for SFINAE-constrained partial specializations.
@@ -67,6 +72,12 @@ struct fp_traits {
   static T abs(const T& x) {
     using std::abs;
     return abs(x);
+  }
+
+  /// Clamp @p x into [@p lo, @p hi].
+  static T clamp(const T& x, const T& lo, const T& hi) {
+    using std::clamp;
+    return clamp(x, lo, hi);
   }
 
   /// @p x raised to the power @p p.

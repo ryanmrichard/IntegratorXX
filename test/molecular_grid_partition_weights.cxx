@@ -156,6 +156,42 @@ TEMPLATE_TEST_CASE( "Partition Weights Oracle Cross-Check", "[molecular-grid][we
   }
 }
 
+TEMPLATE_TEST_CASE( "Becke/LKO partition fractions stay within [0,1] for axis-aligned points", "[molecular-grid][weights]", double, float ) {
+  using T = TestType;
+
+  // A grid point exactly on the axis joining two atoms gives the Becke
+  // switching coordinate mu = +-1 exactly, which is the boundary case naive
+  // interval arithmetic's dependency problem can round outside of if
+  // hBecke/gBecke/gFrisch aren't re-clamped into their provably-exact
+  // [-1,1] range after each (self-correlated) evaluation -- see
+  // fp_traits<T>::clamp and its callers in impl/partition_weights.hpp. A
+  // degree-6 Lebedev-Laikov angular grid places points exactly at
+  // (0,0,+-1), so aligning both atoms on the z-axis reproduces that
+  // boundary deterministically. This is a double/float-only regression
+  // (partitionScratch/mu are plain scalars here, not an enclosure), but it
+  // still exercises the new clamp call on every hBecke/gFrisch evaluation.
+  std::vector<AtomInstance<T>> atoms = {
+    AtomInstance<T>{ {T(0.0), T(0.0), T(0.0)}, make_test_grid_ptr<T>(5, 6) },
+    AtomInstance<T>{ {T(0.0), T(0.0), T(1.3984)}, make_test_grid_ptr<T>(5, 6) },
+  };
+
+  auto check = [&]( PartitionScheme scheme ) {
+    auto atoms_copy = atoms;
+    MolecularGrid<T> mg( atoms_copy, 512 );
+    const auto before = mg.weights();
+    mg.apply_partition_weights( scheme );
+    const auto& after = mg.weights();
+    for( size_t i = 0; i < after.size(); ++i ) {
+      const T fraction = after[i] / before[i];
+      REQUIRE( fraction >= T(0) );
+      REQUIRE( fraction <= T(1) );
+    }
+  };
+
+  SECTION("Becke") { check(PartitionScheme::Becke); }
+  SECTION("LKO")   { check(PartitionScheme::LKO); }
+}
+
 TEMPLATE_TEST_CASE( "LKO equals Becke for a compact molecule", "[molecular-grid][weights]", double, float ) {
   using T = TestType;
 
