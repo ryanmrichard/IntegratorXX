@@ -65,7 +65,13 @@ public:
   template <typename PointType>
   inline auto radial_jacobian(PointType x) const noexcept {
     using traits = fp_traits<PointType>;
-    return R_ * M * traits::pow(x, M-1)
+    // M is a raw size_t (a non-type template parameter), not a PointType --
+    // routed through fp_traits<PointType>::from_integer for the same reason
+    // spherical_micro_batcher.hpp's loop counters are: `PointType * size_t`
+    // requires an exact-type overload of operator*, which template argument
+    // deduction won't find via an implicit conversion for a non-builtin
+    // PointType like sigma::Interval.
+    return R_ * traits::from_integer(static_cast<ixx_int>(M)) * traits::pow(x, M-1)
          / traits::pow(traits::from_integer(1) - x, M+1);
   }
 
