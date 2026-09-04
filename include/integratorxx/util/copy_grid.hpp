@@ -26,12 +26,13 @@ inline constexpr bool has_uniform_weight_v =
  *  @brief Copy a tabulated solid-angle grid into caller-supplied containers,
  *         converting to the containers' value types.
  *
- *  The tables are stored as `double` regardless of the type the quadrature is
- *  instantiated over. They must be: the tables are `constexpr`, which requires
- *  a literal type, and user-defined floating point types are often not
- *  literal. Storing them once as `double` and converting on read keeps the
- *  tables usable from constant expressions while leaving the quadrature type-
- *  generic.
+ *  The tables are stored as `ixx_real` (`double` by default, or the literal's
+ *  decimal source text under `ENABLE_STRING_REALS`) regardless of the type the
+ *  quadrature is instantiated over. They must be: the tables are `constexpr`,
+ *  which requires a literal type, and user-defined floating point types are
+ *  often not literal. Storing them once as `ixx_real` and converting on read
+ *  keeps the tables usable from constant expressions while leaving the
+ *  quadrature type-generic.
  *
  *  Conversion goes through `fp_traits::from_real`. At the time of this writing,
  *  every non-integral entry in these tables is inexact. The only exactly-
